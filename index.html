@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P ファイル一時保管庫</title>
+    <!-- Tailwind CSS (スタイリング用) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PeerJS (WebRTC P2P通信用) -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- Lucide Icons (アイコン用) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .hidden-view { display: none !important; }
+        /* ドラッグ&ドロップ時のアニメーション用 */
+        .drag-active { border-color: #3b82f6 !important; background-color: #eff6ff !important; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col items-center justify-center py-10 px-4">
+
+    <!-- メインコンテナ -->
+    <div class="max-w-xl w-full bg-white rounded-3xl shadow-xl overflow-hidden">
+        
+        <!-- ヘッダー -->
+        <div class="bg-indigo-600 p-6 text-white text-center">
+            <h1 class="text-2xl font-bold flex items-center justify-center gap-2">
+                <i data-lucide="zap" class="w-6 h-6"></i>
+                P2P Drop
+            </h1>
+            <p class="text-indigo-200 text-sm mt-2">サーバーを経由しない、ブラウザ間直接ファイル共有</p>
+        </div>
+
+        <div class="p-8">
+
+            <!-- ローカル実行時の警告バナー -->
+            <div id="file-protocol-warning" class="hidden bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 p-4 mb-6 rounded-r-lg shadow-sm">
+                <div class="flex items-start gap-3">
+                    <i data-lucide="alert-circle" class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5"></i>
+                    <div class="text-sm">
+                        <p class="font-bold text-yellow-900 mb-1">ローカルファイルとして開かれています</p>
+                        <p>現在の状態では、生成されたリンクは別の端末（スマホ等）からは開けません。別の端末と共有するには、このHTMLファイルをWebサーバー(GitHub Pages等)に配置するか、ローカルサーバーを起動してアクセスしてください。</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ==========================================
+                 [送信側] 1. 初期画面（ファイル選択）
+                 ========================================== -->
+            <div id="view-send-init" class="view-section hidden-view">
+                <p class="text-sm text-gray-500 mb-6 text-center">
+                    デバイス内のファイルを選択して共有リンクを作成します。<br>
+                    動画や大きなファイルも直接相手に転送可能です。
+                </p>
+
+                <!-- ファイルドロップゾーン -->
+                <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center cursor-pointer hover:bg-gray-50 transition-colors mb-4">
+                    <i data-lucide="upload-cloud" class="w-12 h-12 text-indigo-400 mx-auto mb-3"></i>
+                    <p class="text-gray-600 font-medium">クリックまたはファイルをドロップ</p>
+                    <p class="text-xs text-gray-400 mt-1">動画、画像、ドキュメント等</p>
+                    <input type="file" id="file-input" class="hidden">
+                </div>
+                
+                <!-- 選択されたファイル名表示 -->
+                <div id="selected-file-name" class="hidden text-sm text-indigo-600 font-medium bg-indigo-50 p-3 rounded-lg text-center mb-6 break-all"></div>
+
+                <!-- 有効期限設定 -->
+                <div class="mb-8">
+                    <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                        <i data-lucide="clock" class="w-4 h-4"></i> 自動消去までの時間 (有効期限)
+                    </label>
+                    <select id="expire-select" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg p-3 focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="5">5分後</option>
+                        <option value="15" selected>15分後</option>
+                        <option value="30">30分後</option>
+                        <option value="60">1時間後</option>
+                        <option value="180">3時間後</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-2">※時間が来ると共有は自動的に終了し、ファイルへのアクセスは破棄されます。</p>
+                </div>
+
+                <button onclick="startSharing()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-colors flex justify-center items-center gap-2">
+                    <i data-lucide="link" class="w-5 h-5"></i> 共有リンクを作成
+                </button>
+            </div>
+
+            <!-- ==========================================
+                 [送信側] 2. 共有中画面
+                 ========================================== -->
+            <div id="view-send-sharing" class="view-section hidden-view text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                    <i data-lucide="check" class="w-8 h-8 text-green-500"></i>
+                </div>
+                <h2 class="text-xl font-bold mb-2">共有の準備ができました！</h2>
+                <p class="text-sm text-gray-600 mb-6">以下のリンクをダウンロードさせたい相手に送ってください。</p>
+
+                <!-- リンクURL -->
+                <div class="flex items-center gap-2 mb-8">
+                    <input type="text" id="share-url" readonly class="w-full bg-gray-100 border border-gray-200 text-gray-700 rounded-lg p-3 text-sm focus:outline-none">
+                    <button onclick="copyLink()" class="bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-lg transition-colors whitespace-nowrap">
+                        コピー
+                    </button>
+                </div>
+
+                <!-- カウントダウン -->
+                <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-5 mb-6">
+                    <p class="text-sm font-medium text-indigo-800 mb-1">自動消去まで残り</p>
+                    <p id="countdown-display" class="text-3xl font-mono font-bold text-indigo-600">--:--</p>
+                </div>
+
+                <div class="text-left bg-red-50 text-red-700 p-4 rounded-lg text-sm mb-6 border border-red-100 flex items-start gap-2">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 flex-shrink-0 mt-0.5"></i>
+                    <p><strong>注意:</strong> ブラウザのこのタブを閉じると、その時点で共有は停止し、ファイルは失われます。相手がダウンロードを完了するまで開いたままにしてください。</p>
+                </div>
+
+                <button onclick="stopSharing('共有を手動で停止しました。')" class="text-gray-500 hover:text-red-500 text-sm font-medium transition-colors underline">
+                    今すぐ共有を停止して破棄する
+                </button>
+            </div>
+
+            <!-- ==========================================
+                 [受信側] 3. 受信待機・進捗画面
+                 ========================================== -->
+            <div id="view-receive-loading" class="view-section hidden-view text-center py-8">
+                <i data-lucide="loader-2" class="w-12 h-12 text-indigo-500 mx-auto animate-spin mb-4"></i>
+                <h2 class="text-xl font-bold mb-2">ファイルを受信しています</h2>
+                <p id="receive-status" class="text-sm text-gray-500 mb-6">送信者に接続中...</p>
+
+                <!-- プログレスバー -->
+                <div class="w-full bg-gray-200 rounded-full h-4 mb-2 overflow-hidden">
+                    <div id="receive-progress" class="bg-indigo-600 h-4 rounded-full transition-all duration-200" style="width: 0%"></div>
+                </div>
+                <p id="receive-progress-text" class="text-sm font-bold text-indigo-600">0%</p>
+                
+                <p class="text-xs text-gray-400 mt-6">※ファイルのサイズが大きい場合、少々時間がかかります。タブを閉じないでお待ちください。</p>
+            </div>
+
+            <!-- ==========================================
+                 [受信側] 4. 受信完了・ダウンロード画面
+                 ========================================== -->
+            <div id="view-receive-complete" class="view-section hidden-view text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                    <i data-lucide="download-cloud" class="w-8 h-8 text-blue-500"></i>
+                </div>
+                <h2 class="text-xl font-bold mb-2">受信完了！</h2>
+                <p class="text-sm text-gray-600 mb-6">ファイルがあなたのデバイスに転送されました。</p>
+
+                <div class="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-200">
+                    <p id="file-name-display" class="font-medium text-gray-800 break-all mb-4"></p>
+                    <!-- プレビュー表示エリア（動画・画像等） -->
+                    <div id="preview-container" class="flex justify-center items-center rounded-lg overflow-hidden bg-gray-100 min-h-[150px]">
+                        <!-- JSで動的に追加 -->
+                    </div>
+                </div>
+
+                <a id="download-btn" href="#" class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors mb-4 flex justify-center items-center gap-2">
+                    <i data-lucide="download" class="w-5 h-5"></i> デバイスに保存
+                </a>
+
+                <button onclick="window.location.href = window.location.pathname" class="text-gray-500 hover:text-gray-800 text-sm font-medium transition-colors underline">
+                    トップに戻る
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // アイコンの初期化
+        lucide.createIcons();
+
+        // --- fileプロトコルの場合の警告 ---
+        if (window.location.protocol === 'file:') {
+            const warningEl = document.getElementById('file-protocol-warning');
+            if (warningEl) {
+                warningEl.classList.remove('hidden');
+            }
+        }
+
+        // --- グローバル変数 ---
+        let peer = null;
+        let currentFile = null;
+        let countdownInterval = null;
+        const CHUNK_SIZE = 64 * 1024; // 64KBごとのチャンク送信
+
+        // --- ユーティリティ ---
+        const el = (id) => document.getElementById(id);
+        const showView = (id) => {
+            document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden-view'));
+            el(id).classList.remove('hidden-view');
+        };
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        // --- モード判定 (URLパラメータに ?peer=XXX があるかで分岐) ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetPeerId = urlParams.get('peer');
+
+        if (targetPeerId) {
+            initReceiveMode(targetPeerId);
+        } else {
+            initSendMode();
+        }
+
+        // ==========================================
+        // 送信側のロジック
+        // ==========================================
+        function initSendMode() {
+            showView('view-send-init');
+
+            const dropZone = el('drop-zone');
+            const fileInput = el('file-input');
+
+            // クリックでファイル選択
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            // ドラッグ&ドロップイベント
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-active');
+            });
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-active');
+            });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-active');
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    updateFileInfo();
+                }
+            });
+            fileInput.addEventListener('change', updateFileInfo);
+
+            function updateFileInfo() {
+                if (fileInput.files.length) {
+                    const file = fileInput.files[0];
+                    el('selected-file-name').textContent = `選択中: ${file.name} (${formatBytes(file.size)})`;
+                    el('selected-file-name').classList.remove('hidden');
+                } else {
+                    el('selected-file-name').classList.add('hidden');
+                }
+            }
+        }
+
+        function startSharing() {
+            const fileInput = el('file-input');
+            const expireSelect = el('expire-select');
+
+            if (!fileInput.files.length) {
+                alert("ファイルを選択してください。");
+                return;
+            }
+
+            currentFile = fileInput.files[0];
+            const expireMinutes = parseInt(expireSelect.value, 10);
+
+            // 送信側用のPeerを生成
+            peer = new Peer({ debug: 2 });
+
+            peer.on('open', (id) => {
+                // 共有リンクを生成
+                const shareUrl = window.location.origin + window.location.pathname + '?peer=' + id;
+                el('share-url').value = shareUrl;
+                showView('view-send-sharing');
+
+                // 自動消去のカウントダウン開始
+                startCountdown(expireMinutes * 60);
+
+                // 受信者からの接続を待つ
+                peer.on('connection', (conn) => {
+                    handleSenderConnection(conn, currentFile);
+                });
+            });
+
+            peer.on('error', (err) => {
+                console.error(err);
+                alert("P2Pサーバーへの接続に失敗しました。");
+                stopSharing();
+            });
+        }
+
+        function handleSenderConnection(conn, file) {
+            conn.on('open', () => {
+                // 接続確立後、まずはファイル情報を送る
+                conn.send({
+                    type: 'metadata',
+                    name: file.name,
+                    mimeType: file.type,
+                    size: file.size
+                });
+            });
+
+            conn.on('data', (data) => {
+                // 受信側が準備完了(ready)を返してきたらデータ送信開始
+                if (data.type === 'ready') {
+                    sendNextChunk(conn, file, 0);
+                }
+            });
+        }
+
+        // ファイルを細かく分割(チャンク化)して送信する処理
+        function sendNextChunk(conn, file, offset) {
+            if(!conn.open) return; // 切断されていたら中止
+
+            // 全て送信完了した場合
+            if (offset >= file.size) {
+                conn.send({ type: 'eof' });
+                return;
+            }
+
+            // WebRTCのバッファが溜まりすぎている場合は少し待つ(メモリ溢れ防止)
+            if (conn.dataChannel && conn.dataChannel.bufferedAmount > 1024 * 1024) { // 1MB
+                setTimeout(() => sendNextChunk(conn, file, offset), 50);
+                return;
+            }
+
+            // ファイルの一部を読み込む
+            const slice = file.slice(offset, offset + CHUNK_SIZE);
+            slice.arrayBuffer().then(buffer => {
+                if(conn.open) {
+                    conn.send({ type: 'chunk', data: buffer });
+                    // 次のチャンクへ
+                    sendNextChunk(conn, file, offset + CHUNK_SIZE);
+                }
+            });
+        }
+
+        function startCountdown(seconds) {
+            let remain = seconds;
+            const timeDisplay = el('countdown-display');
+
+            countdownInterval = setInterval(() => {
+                remain--;
+                const h = Math.floor(remain / 3600);
+                const m = Math.floor((remain % 3600) / 60).toString().padStart(2, '0');
+                const s = (remain % 60).toString().padStart(2, '0');
+                
+                timeDisplay.textContent = h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+
+                if (remain <= 0) {
+                    clearInterval(countdownInterval);
+                    alert("設定された有効期限が経過しました。ファイルの共有と参照を破棄します。");
+                    stopSharing();
+                }
+            }, 1000);
+        }
+
+        function stopSharing(alertMsg) {
+            if (alertMsg) alert(alertMsg);
+            if (peer) {
+                peer.destroy(); // 通信を完全に遮断
+                peer = null;
+            }
+            currentFile = null; // メモリ上のファイル参照を消去（自動消去）
+            if (countdownInterval) clearInterval(countdownInterval);
+            window.location.href = window.location.pathname; // ページリロードで初期化
+        }
+
+        function copyLink() {
+            const copyText = el('share-url').value;
+            // 互換性のあるコピー処理
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(copyText).then(() => alert("リンクをコピーしました！"));
+            } else {
+                el('share-url').select();
+                document.execCommand("copy");
+                alert("リンクをコピーしました！");
+            }
+        }
+
+        // タブを閉じようとした際の警告（送信側のみ）
+        window.addEventListener('beforeunload', function (e) {
+            if (peer && currentFile) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+
+        // ==========================================
+        // 受信側のロジック
+        // ==========================================
+        function initReceiveMode(targetId) {
+            showView('view-receive-loading');
+            peer = new Peer({ debug: 2 });
+
+            peer.on('open', (id) => {
+                // 送信者へ接続
+                const conn = peer.connect(targetId, { reliable: true });
+
+                conn.on('open', () => {
+                    el('receive-status').textContent = "送信者と接続確立。ファイル情報を待機中...";
+                });
+
+                let receivedChunks = [];
+                let metadata = null;
+                let receivedSize = 0;
+
+                conn.on('data', (data) => {
+                    if (data.type === 'metadata') {
+                        // メタデータ受信
+                        metadata = data;
+                        el('receive-status').textContent = `受信中: ${metadata.name} (${formatBytes(metadata.size)})`;
+                        // 準備完了を知らせてデータ送信を要求
+                        conn.send({ type: 'ready' });
+                    } 
+                    else if (data.type === 'chunk') {
+                        // チャンクデータを配列に保存
+                        receivedChunks.push(data.data);
+                        receivedSize += data.data.byteLength;
+                        
+                        // 進捗バー更新
+                        const progress = Math.min((receivedSize / metadata.size) * 100, 100).toFixed(1);
+                        el('receive-progress').style.width = progress + '%';
+                        el('receive-progress-text').textContent = progress + '%';
+                    } 
+                    else if (data.type === 'eof') {
+                        // 受信完了
+                        conn.close();
+                        peer.destroy();
+                        finishReceive(receivedChunks, metadata);
+                    }
+                });
+
+                conn.on('close', () => {
+                    if(receivedSize < (metadata?.size || 1)) {
+                        alert("通信が切断されました。送信者がページを閉じた可能性があります。");
+                        window.location.href = window.location.pathname;
+                    }
+                });
+            });
+
+            peer.on('error', (err) => {
+                if (err.type === 'peer-unavailable') {
+                    alert("送信者が見つかりません。リンクの有効期限が切れているか、送信者が既にページを閉じています。");
+                    window.location.href = window.location.pathname;
+                } else {
+                    alert("エラーが発生しました: " + err);
+                }
+            });
+        }
+
+        function finishReceive(chunks, metadata) {
+            // 受信したバイナリチャンクを結合して1つのファイル(Blob)にする
+            const blob = new Blob(chunks, { type: metadata.mimeType });
+            const url = URL.createObjectURL(blob);
+
+            showView('view-receive-complete');
+            
+            // ダウンロードリンクの設定
+            const dlBtn = el('download-btn');
+            dlBtn.href = url;
+            dlBtn.download = metadata.name;
+            el('file-name-display').textContent = `${metadata.name} (${formatBytes(metadata.size)})`;
+
+            // ファイルタイプに応じたプレビュー表示
+            const previewContainer = el('preview-container');
+            previewContainer.innerHTML = '';
+
+            if (metadata.mimeType.startsWith('video/')) {
+                const video = document.createElement('video');
+                video.src = url;
+                video.controls = true;
+                video.className = "w-full max-h-64 bg-black object-contain";
+                previewContainer.appendChild(video);
+            } else if (metadata.mimeType.startsWith('image/')) {
+                const img = document.createElement('img');
+                img.src = url;
+                img.className = "max-w-full max-h-64 object-contain mx-auto";
+                previewContainer.appendChild(img);
+            } else if (metadata.mimeType.startsWith('audio/')) {
+                const audio = document.createElement('audio');
+                audio.src = url;
+                audio.controls = true;
+                audio.className = "w-full mt-4";
+                previewContainer.appendChild(audio);
+            } else {
+                const icon = document.createElement('i');
+                icon.setAttribute('data-lucide', 'file-text');
+                icon.className = "w-20 h-20 text-gray-400 py-6";
+                previewContainer.appendChild(icon);
+                lucide.createIcons();
+            }
+        }
+    </script>
+</body>
+</html>
