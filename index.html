@@ -10,13 +10,146 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <!-- Lucide Icons (アイコン用) -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- QRCode.js (共有リンクのQR表示用) -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <!-- JSZip (複数ファイルのZIP圧縮用) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         .hidden-view { display: none !important; }
         /* ドラッグ&ドロップ時のアニメーション用 */
         .drag-active { border-color: #3b82f6 !important; background-color: #eff6ff !important; }
+
+        /* トースト通知 */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            pointer-events: none;
+            width: calc(100% - 32px);
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .toast {
+            background: #1f2937;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+            max-width: 100%;
+            word-break: break-word;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: #059669; }
+        .toast.error { background: #dc2626; }
+        .toast.info { background: #2563eb; }
+
+        /* QRコードのコンテナ */
+        #qrcode-container img,
+        #qrcode-container canvas {
+            margin: 0 auto;
+            border-radius: 8px;
+            display: block;
+        }
+
+        /* スクロールバーを細めに */
+        .file-list-scroll::-webkit-scrollbar { width: 6px; }
+        .file-list-scroll::-webkit-scrollbar-thumb {
+            background: #c7d2fe;
+            border-radius: 3px;
+        }
+        .file-list-scroll::-webkit-scrollbar-track { background: transparent; }
+
+        /* iOS Safariで input のズームを防ぐ（フォーカス時の拡大回避） */
+        input, select, textarea {
+            font-size: 16px;
+        }
+        @media (min-width: 481px) {
+            #share-url, #expire-select { font-size: 14px; }
+        }
+
+        /* 選択ファイル一覧 */
+        .file-list-scroll {
+            max-height: 200px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .file-chip {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #eef2ff;
+            color: #4338ca;
+            padding: 8px 10px 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 6px;
+            gap: 8px;
+        }
+        .file-chip-name {
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-chip-remove {
+            cursor: pointer;
+            color: #6366f1;
+            min-width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            flex-shrink: 0;
+            transition: background-color 0.15s;
+            background: transparent;
+            border: none;
+            font-size: 16px;
+        }
+        .file-chip-remove:hover,
+        .file-chip-remove:focus {
+            color: #dc2626;
+            background: rgba(220, 38, 38, 0.08);
+            outline: none;
+        }
+
+        /* 共有リンクエリア（スマホは縦並び） */
+        .share-link-row {
+            display: flex;
+            gap: 8px;
+            align-items: stretch;
+        }
+        @media (max-width: 480px) {
+            .share-link-row { flex-direction: column; }
+            .share-link-row #copy-btn { width: 100%; justify-content: center; }
+        }
+
+        /* QRコードはスマホで少し大きめに */
+        @media (max-width: 480px) {
+            #qrcode-container canvas,
+            #qrcode-container img {
+                width: 200px !important;
+                height: 200px !important;
+            }
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col items-center justify-center py-10 px-4">
+
+    <!-- トースト通知コンテナ -->
+    <div id="toast-container"></div>
 
     <!-- メインコンテナ -->
     <div class="max-w-xl w-full bg-white rounded-3xl shadow-xl overflow-hidden">
@@ -49,19 +182,23 @@
             <div id="view-send-init" class="view-section hidden-view">
                 <p class="text-sm text-gray-500 mb-6 text-center">
                     デバイス内のファイルを選択して共有リンクを作成します。<br>
-                    動画や大きなファイルも直接相手に転送可能です。
+                    複数のファイルや動画も直接相手に転送可能です。
                 </p>
 
                 <!-- ファイルドロップゾーン -->
-                <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center cursor-pointer hover:bg-gray-50 transition-colors mb-4">
+                <div id="drop-zone" tabindex="0" class="border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center cursor-pointer hover:bg-gray-50 transition-colors mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-400">
                     <i data-lucide="upload-cloud" class="w-12 h-12 text-indigo-400 mx-auto mb-3"></i>
                     <p class="text-gray-600 font-medium">クリックまたはファイルをドロップ</p>
-                    <p class="text-xs text-gray-400 mt-1">動画、画像、ドキュメント等</p>
-                    <input type="file" id="file-input" class="hidden">
+                    <p class="text-xs text-gray-400 mt-1">複数選択可・動画/画像/ドキュメント等</p>
+                    <input type="file" id="file-input" class="hidden" multiple>
                 </div>
                 
-                <!-- 選択されたファイル名表示 -->
-                <div id="selected-file-name" class="hidden text-sm text-indigo-600 font-medium bg-indigo-50 p-3 rounded-lg text-center mb-6 break-all"></div>
+                <!-- 選択されたファイル一覧表示 -->
+                <div id="selected-file-list" class="hidden mb-6"></div>
+                <!-- ファイル追加ボタン（一覧表示中） -->
+                <button id="add-more-btn" class="hidden w-full text-sm text-indigo-600 hover:text-indigo-800 font-medium mb-6 py-2 border border-dashed border-indigo-300 rounded-lg transition-colors">
+                    + ファイルを追加
+                </button>
 
                 <!-- 有効期限設定 -->
                 <div class="mb-8">
@@ -84,27 +221,70 @@
             </div>
 
             <!-- ==========================================
+                 [送信側] 1.5 ZIP圧縮中画面（複数ファイル時のみ）
+                 ========================================== -->
+            <div id="view-send-zipping" class="view-section hidden-view text-center py-8">
+                <i data-lucide="archive" class="w-12 h-12 text-indigo-500 mx-auto mb-4 animate-pulse"></i>
+                <h2 class="text-xl font-bold mb-2">ファイルを圧縮しています...</h2>
+                <p class="text-sm text-gray-500 mb-6">複数ファイルをZIPにまとめています。少々お待ちください。</p>
+                <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                    <div id="zip-progress" class="bg-indigo-600 h-3 rounded-full transition-all duration-200" style="width: 0%"></div>
+                </div>
+                <p id="zip-progress-text" class="text-sm font-bold text-indigo-600 mt-2">0%</p>
+            </div>
+
+            <!-- ==========================================
                  [送信側] 2. 共有中画面
                  ========================================== -->
             <div id="view-send-sharing" class="view-section hidden-view text-center">
                 <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
                     <i data-lucide="check" class="w-8 h-8 text-green-500"></i>
                 </div>
-                <h2 class="text-xl font-bold mb-2">共有の準備ができました！</h2>
-                <p class="text-sm text-gray-600 mb-6">以下のリンクをダウンロードさせたい相手に送ってください。</p>
+                <h2 class="text-xl font-bold mb-2">共有の準備ができました!</h2>
+                <p class="text-sm text-gray-600 mb-6">以下のリンクまたはQRコードを相手に送ってください。</p>
+
+                <!-- QRコード表示 -->
+                <div class="bg-white border border-gray-200 rounded-xl p-4 mb-6 inline-block">
+                    <div id="qrcode-container"></div>
+                    <p class="text-xs text-gray-500 mt-3 flex items-center justify-center gap-1">
+                        <i data-lucide="smartphone" class="w-3 h-3"></i>
+                        スマホでスキャンして受信
+                    </p>
+                </div>
 
                 <!-- リンクURL -->
-                <div class="flex items-center gap-2 mb-8">
+                <div class="share-link-row mb-6">
                     <input type="text" id="share-url" readonly class="w-full bg-gray-100 border border-gray-200 text-gray-700 rounded-lg p-3 text-sm focus:outline-none">
-                    <button onclick="copyLink()" class="bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-lg transition-colors whitespace-nowrap">
-                        コピー
+                    <button id="copy-btn" onclick="copyLink()" class="bg-gray-800 hover:bg-gray-700 active:bg-gray-900 text-white px-4 py-3 rounded-lg transition-colors whitespace-nowrap flex items-center justify-center gap-1">
+                        <span id="copy-btn-content" class="flex items-center gap-1">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                            <span>コピー</span>
+                        </span>
                     </button>
+                </div>
+
+                <!-- 接続状態インジケーター -->
+                <div id="connection-status" class="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-4 text-sm text-gray-600 flex items-center justify-center gap-2">
+                    <span class="inline-block w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
+                    受信者の接続を待機中...
+                </div>
+
+                <!-- 送信進捗バー（受信者接続後に表示） -->
+                <div id="send-progress-area" class="hidden mb-4">
+                    <div class="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>送信中</span>
+                        <span id="send-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div id="send-progress" class="bg-green-500 h-3 rounded-full transition-all duration-200" style="width: 0%"></div>
+                    </div>
+                    <p id="send-speed-text" class="text-xs text-gray-500 mt-1">--</p>
                 </div>
 
                 <!-- カウントダウン -->
                 <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-5 mb-6">
                     <p class="text-sm font-medium text-indigo-800 mb-1">自動消去まで残り</p>
-                    <p id="countdown-display" class="text-3xl font-mono font-bold text-indigo-600">--:--</p>
+                    <p id="countdown-display" class="text-3xl font-mono font-bold text-indigo-600" aria-live="polite">--:--</p>
                 </div>
 
                 <div class="text-left bg-red-50 text-red-700 p-4 rounded-lg text-sm mb-6 border border-red-100 flex items-start gap-2">
@@ -129,7 +309,11 @@
                 <div class="w-full bg-gray-200 rounded-full h-4 mb-2 overflow-hidden">
                     <div id="receive-progress" class="bg-indigo-600 h-4 rounded-full transition-all duration-200" style="width: 0%"></div>
                 </div>
-                <p id="receive-progress-text" class="text-sm font-bold text-indigo-600">0%</p>
+                <div class="flex justify-between text-sm">
+                    <p id="receive-progress-text" class="font-bold text-indigo-600">0%</p>
+                    <p id="receive-speed-text" class="text-gray-500">--</p>
+                </div>
+                <p id="receive-eta-text" class="text-xs text-gray-500 mt-1">残り時間: --</p>
                 
                 <p class="text-xs text-gray-400 mt-6">※ファイルのサイズが大きい場合、少々時間がかかります。タブを閉じないでお待ちください。</p>
             </div>
@@ -141,7 +325,7 @@
                 <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
                     <i data-lucide="download-cloud" class="w-8 h-8 text-blue-500"></i>
                 </div>
-                <h2 class="text-xl font-bold mb-2">受信完了！</h2>
+                <h2 class="text-xl font-bold mb-2">受信完了!</h2>
                 <p class="text-sm text-gray-600 mb-6">ファイルがあなたのデバイスに転送されました。</p>
 
                 <div class="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-200">
@@ -178,8 +362,12 @@
 
         // --- グローバル変数 ---
         let peer = null;
-        let currentFile = null;
+        let currentFile = null;        // 単一ファイル or 圧縮後のZIP Blob
+        let currentFileName = '';      // 表示用ファイル名
+        let selectedFiles = [];        // 複数選択されたファイル一覧
         let countdownInterval = null;
+        let wakeLockSentinel = null;   // Screen Wake Lock
+        let shareEndTime = null;       // 絶対時刻ベースの期限
         const CHUNK_SIZE = 64 * 1024; // 64KBごとのチャンク送信
 
         // --- ユーティリティ ---
@@ -187,6 +375,8 @@
         const showView = (id) => {
             document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden-view'));
             el(id).classList.remove('hidden-view');
+            // ビュー切替後にアイコンを再描画
+            setTimeout(() => lucide.createIcons(), 0);
         };
 
         function formatBytes(bytes, decimals = 2) {
@@ -196,6 +386,64 @@
             const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        // HTMLエスケープ（XSS対策）
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, ch => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[ch]));
+        }
+
+        function formatTime(seconds) {
+            if (!isFinite(seconds) || seconds < 0) return '--';
+            if (seconds < 60) return `${Math.ceil(seconds)}秒`;
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}分${s.toString().padStart(2, '0')}秒`;
+        }
+
+        // --- トースト通知 ---
+        function showToast(message, type = 'success', duration = 2500) {
+            const container = el('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            // フェードイン
+            requestAnimationFrame(() => toast.classList.add('show'));
+            // 自動消去
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // --- Screen Wake Lock (モバイル離脱対策) ---
+        async function acquireWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLockSentinel = await navigator.wakeLock.request('screen');
+                    console.log('🔒 Wake Lock acquired (画面ロック抑止 ON)');
+                    // ページ再表示時に再取得
+                    document.addEventListener('visibilitychange', handleVisibilityChange);
+                }
+            } catch (err) {
+                console.warn('Wake Lock 取得失敗:', err);
+            }
+        }
+        async function handleVisibilityChange() {
+            if (document.visibilityState === 'visible' && wakeLockSentinel === null && peer) {
+                await acquireWakeLock();
+            }
+        }
+        function releaseWakeLock() {
+            if (wakeLockSentinel) {
+                wakeLockSentinel.release().catch(() => {});
+                wakeLockSentinel = null;
+                document.removeEventListener('visibilitychange', handleVisibilityChange);
+                console.log('🔓 Wake Lock released');
+            }
         }
 
         // --- モード判定 (URLパラメータに ?peer=XXX があるかで分岐) ---
@@ -219,6 +467,13 @@
 
             // クリックでファイル選択
             dropZone.addEventListener('click', () => fileInput.click());
+            // キーボードアクセシビリティ
+            dropZone.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fileInput.click();
+                }
+            });
 
             // ドラッグ&ドロップイベント
             dropZone.addEventListener('dragover', (e) => {
@@ -232,34 +487,104 @@
                 e.preventDefault();
                 dropZone.classList.remove('drag-active');
                 if (e.dataTransfer.files.length) {
-                    fileInput.files = e.dataTransfer.files;
-                    updateFileInfo();
+                    addFiles(e.dataTransfer.files);
                 }
             });
-            fileInput.addEventListener('change', updateFileInfo);
-
-            function updateFileInfo() {
-                if (fileInput.files.length) {
-                    const file = fileInput.files[0];
-                    el('selected-file-name').textContent = `選択中: ${file.name} (${formatBytes(file.size)})`;
-                    el('selected-file-name').classList.remove('hidden');
-                } else {
-                    el('selected-file-name').classList.add('hidden');
-                }
-            }
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length) addFiles(fileInput.files);
+                // 同じファイルを再選択できるようにリセット
+                fileInput.value = '';
+            });
+            // 「ファイルを追加」ボタン
+            const addMoreBtn = el('add-more-btn');
+            addMoreBtn.addEventListener('click', () => fileInput.click());
         }
 
-        function startSharing() {
-            const fileInput = el('file-input');
-            const expireSelect = el('expire-select');
+        // 複数ファイル追加（重複は除外）
+        function addFiles(fileList) {
+            for (const f of fileList) {
+                const dup = selectedFiles.some(s => s.name === f.name && s.size === f.size);
+                if (!dup) selectedFiles.push(f);
+            }
+            renderFileList();
+        }
 
-            if (!fileInput.files.length) {
-                alert("ファイルを選択してください。");
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            renderFileList();
+        }
+
+        function renderFileList() {
+            const listEl = el('selected-file-list');
+            const addMoreBtn = el('add-more-btn');
+            const dropZone = el('drop-zone');
+            if (selectedFiles.length === 0) {
+                listEl.classList.add('hidden');
+                listEl.innerHTML = '';
+                addMoreBtn.classList.add('hidden');
+                dropZone.classList.remove('hidden');
+                return;
+            }
+            listEl.classList.remove('hidden');
+            addMoreBtn.classList.remove('hidden');
+            // ファイルが1つ以上選択されたらドロップゾーンを隠して画面を簡潔に
+            dropZone.classList.add('hidden');
+
+            const totalSize = selectedFiles.reduce((s, f) => s + f.size, 0);
+            const itemsHtml = selectedFiles.map((f, i) => `
+                <div class="file-chip">
+                    <span class="file-chip-name">📄 ${escapeHtml(f.name)} <span class="text-gray-400 text-xs">(${formatBytes(f.size)})</span></span>
+                    <button type="button" class="file-chip-remove" onclick="removeFile(${i})" aria-label="${escapeHtml(f.name)} を削除" title="削除">✕</button>
+                </div>
+            `).join('');
+            listEl.innerHTML = `
+                <p class="text-xs text-gray-500 mb-2">選択中: ${selectedFiles.length}個のファイル / 合計 ${formatBytes(totalSize)}</p>
+                <div class="file-list-scroll">${itemsHtml}</div>
+            `;
+        }
+
+        async function startSharing() {
+            if (selectedFiles.length === 0) {
+                showToast("ファイルを選択してください。", 'error');
                 return;
             }
 
-            currentFile = fileInput.files[0];
-            const expireMinutes = parseInt(expireSelect.value, 10);
+            const expireMinutes = parseInt(el('expire-select').value, 10);
+
+            // 複数ファイルの場合は ZIP に圧縮
+            if (selectedFiles.length >= 2) {
+                showView('view-send-zipping');
+                try {
+                    const zip = new JSZip();
+                    for (const f of selectedFiles) {
+                        zip.file(f.name, f);
+                    }
+                    const zipBlob = await zip.generateAsync(
+                        { type: 'blob', compression: 'STORE' }, // 既圧縮メディアが多いので無圧縮で高速化
+                        (metadata) => {
+                            const pct = Math.round(metadata.percent);
+                            el('zip-progress').style.width = pct + '%';
+                            el('zip-progress-text').textContent = pct + '%';
+                        }
+                    );
+                    // BlobをFileに変換しておくと既存ロジックが流用できる
+                    const stamp = new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+                    currentFileName = `p2pdrop-${stamp}.zip`;
+                    currentFile = new File([zipBlob], currentFileName, { type: 'application/zip' });
+                } catch (err) {
+                    console.error(err);
+                    showToast("ZIP圧縮に失敗しました。", 'error');
+                    showView('view-send-init');
+                    return;
+                }
+            } else {
+                // 単一ファイル
+                currentFile = selectedFiles[0];
+                currentFileName = currentFile.name;
+            }
+
+            // Wake Lock 取得
+            await acquireWakeLock();
 
             // 送信側用のPeerを生成
             peer = new Peer({ debug: 2 });
@@ -270,7 +595,10 @@
                 el('share-url').value = shareUrl;
                 showView('view-send-sharing');
 
-                // 自動消去のカウントダウン開始
+                // QRコード生成
+                renderQRCode(shareUrl);
+
+                // 自動消去のカウントダウン開始（絶対時刻ベース）
                 startCountdown(expireMinutes * 60);
 
                 // 受信者からの接続を待つ
@@ -281,97 +609,188 @@
 
             peer.on('error', (err) => {
                 console.error(err);
-                alert("P2Pサーバーへの接続に失敗しました。");
+                const msg = err && (err.type || err.message) ? `P2P接続エラー: ${err.type || err.message}` : "P2Pサーバーへの接続に失敗しました。";
+                showToast(msg, 'error', 4000);
                 stopSharing();
             });
         }
 
+        function renderQRCode(url) {
+            const container = el('qrcode-container');
+            container.innerHTML = '';
+            new QRCode(container, {
+                text: url,
+                width: 180,
+                height: 180,
+                colorDark: '#1f2937',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M
+            });
+        }
+
         function handleSenderConnection(conn, file) {
+            // 接続状態の表示更新
+            el('connection-status').innerHTML = `
+                <span class="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                受信者と接続しました。送信を準備中...
+            `;
+            showToast('🤝 受信者が接続しました', 'info');
+
             conn.on('open', () => {
                 // 接続確立後、まずはファイル情報を送る
                 conn.send({
                     type: 'metadata',
-                    name: file.name,
-                    mimeType: file.type,
-                    size: file.size
+                    name: currentFileName || file.name,
+                    mimeType: file.type || 'application/octet-stream',
+                    size: file.size,
+                    isZip: selectedFiles.length >= 2,
+                    fileCount: selectedFiles.length
                 });
             });
 
+            // 送信進捗エリアの初期化
+            el('send-progress-area').classList.remove('hidden');
+            let sendStartTime = Date.now();
+            let lastReportTime = sendStartTime;
+            let lastReportBytes = 0;
+
             conn.on('data', (data) => {
-                // 受信側が準備完了(ready)を返してきたらデータ送信開始
                 if (data.type === 'ready') {
-                    sendNextChunk(conn, file, 0);
+                    sendStartTime = Date.now();
+                    lastReportTime = sendStartTime;
+                    sendNextChunk(conn, file, 0, (offset) => {
+                        // 進捗コールバック
+                        const pct = Math.min((offset / file.size) * 100, 100);
+                        el('send-progress').style.width = pct.toFixed(1) + '%';
+                        el('send-progress-text').textContent = pct.toFixed(1) + '%';
+
+                        // 速度計算 (1秒ごと更新)
+                        const now = Date.now();
+                        if (now - lastReportTime >= 500) {
+                            const intervalSec = (now - lastReportTime) / 1000;
+                            const intervalBytes = offset - lastReportBytes;
+                            const speed = intervalBytes / intervalSec; // bytes/s
+                            const eta = (file.size - offset) / speed;
+                            el('send-speed-text').textContent =
+                                `${formatBytes(speed)}/s ・ 残り ${formatTime(eta)}`;
+                            lastReportTime = now;
+                            lastReportBytes = offset;
+                        }
+
+                        if (offset >= file.size) {
+                            el('send-speed-text').textContent = '✅ 送信完了';
+                            showToast('✅ 送信が完了しました', 'success');
+                        }
+                    });
                 }
+            });
+
+            conn.on('close', () => {
+                el('connection-status').innerHTML = `
+                    <span class="inline-block w-2 h-2 bg-gray-400 rounded-full"></span>
+                    接続が終了しました
+                `;
             });
         }
 
         // ファイルを細かく分割(チャンク化)して送信する処理
-        function sendNextChunk(conn, file, offset) {
-            if(!conn.open) return; // 切断されていたら中止
+        function sendNextChunk(conn, file, offset, onProgress) {
+            if (!conn.open) return; // 切断されていたら中止
 
             // 全て送信完了した場合
             if (offset >= file.size) {
                 conn.send({ type: 'eof' });
+                if (onProgress) onProgress(file.size);
                 return;
             }
 
             // WebRTCのバッファが溜まりすぎている場合は少し待つ(メモリ溢れ防止)
             if (conn.dataChannel && conn.dataChannel.bufferedAmount > 1024 * 1024) { // 1MB
-                setTimeout(() => sendNextChunk(conn, file, offset), 50);
+                setTimeout(() => sendNextChunk(conn, file, offset, onProgress), 50);
                 return;
             }
 
             // ファイルの一部を読み込む
             const slice = file.slice(offset, offset + CHUNK_SIZE);
             slice.arrayBuffer().then(buffer => {
-                if(conn.open) {
+                if (conn.open) {
                     conn.send({ type: 'chunk', data: buffer });
+                    const newOffset = offset + CHUNK_SIZE;
+                    if (onProgress) onProgress(Math.min(newOffset, file.size));
                     // 次のチャンクへ
-                    sendNextChunk(conn, file, offset + CHUNK_SIZE);
+                    sendNextChunk(conn, file, newOffset, onProgress);
                 }
             });
         }
 
+        // 絶対時刻ベースのカウントダウン（バックグラウンドでもズレない）
         function startCountdown(seconds) {
-            let remain = seconds;
+            shareEndTime = Date.now() + seconds * 1000;
             const timeDisplay = el('countdown-display');
 
-            countdownInterval = setInterval(() => {
-                remain--;
+            const update = () => {
+                const remain = Math.max(0, Math.ceil((shareEndTime - Date.now()) / 1000));
                 const h = Math.floor(remain / 3600);
                 const m = Math.floor((remain % 3600) / 60).toString().padStart(2, '0');
                 const s = (remain % 60).toString().padStart(2, '0');
-                
                 timeDisplay.textContent = h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
 
                 if (remain <= 0) {
                     clearInterval(countdownInterval);
-                    alert("設定された有効期限が経過しました。ファイルの共有と参照を破棄します。");
+                    showToast("⏰ 有効期限が経過したため共有を停止しました。", 'info', 4000);
                     stopSharing();
                 }
-            }, 1000);
+            };
+            update();
+            countdownInterval = setInterval(update, 1000);
         }
 
-        function stopSharing(alertMsg) {
-            if (alertMsg) alert(alertMsg);
+        function stopSharing(alertMsg = null) {
+            if (alertMsg) showToast(alertMsg, 'info', 3000);
             if (peer) {
                 peer.destroy(); // 通信を完全に遮断
                 peer = null;
             }
-            currentFile = null; // メモリ上のファイル参照を消去（自動消去）
+            currentFile = null;       // メモリ上のファイル参照を消去
+            currentFileName = '';
+            selectedFiles = [];
+            releaseWakeLock();
             if (countdownInterval) clearInterval(countdownInterval);
-            window.location.href = window.location.pathname; // ページリロードで初期化
+            // 少し遅らせてリロード（トーストを見せるため）
+            setTimeout(() => {
+                window.location.href = window.location.pathname;
+            }, alertMsg ? 1500 : 0);
         }
 
-        function copyLink() {
+        async function copyLink() {
             const copyText = el('share-url').value;
-            // 互換性のあるコピー処理
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(copyText).then(() => alert("リンクをコピーしました！"));
-            } else {
-                el('share-url').select();
-                document.execCommand("copy");
-                alert("リンクをコピーしました！");
+            const btnContent = el('copy-btn-content');
+
+            // ボタン内容をinnerHTMLで丸ごと差し替えてlucideアイコンを再描画
+            const setBtnContent = (iconName, label) => {
+                btnContent.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4"></i><span>${label}</span>`;
+                lucide.createIcons();
+            };
+            const flashSuccess = () => {
+                setBtnContent('check', 'コピー済');
+                setTimeout(() => setBtnContent('copy', 'コピー'), 2000);
+            };
+
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(copyText);
+                    showToast('✅ リンクをコピーしました', 'success');
+                    flashSuccess();
+                } else {
+                    // フォールバック（非セキュアコンテキスト用）
+                    el('share-url').select();
+                    document.execCommand("copy");
+                    showToast('✅ リンクをコピーしました', 'success');
+                    flashSuccess();
+                }
+            } catch (err) {
+                console.error('Copy failed:', err);
+                showToast('❌ コピーに失敗しました。手動でコピーしてください。', 'error', 4000);
             }
         }
 
@@ -398,58 +817,84 @@
                     el('receive-status').textContent = "送信者と接続確立。ファイル情報を待機中...";
                 });
 
-                let receivedChunks = [];
-                let metadata = null;
-                let receivedSize = 0;
+                const state = {
+                    chunks: [],
+                    metadata: null,
+                    receivedSize: 0,
+                    startTime: null,
+                    lastReportTime: null,
+                    lastReportBytes: 0
+                };
 
                 conn.on('data', (data) => {
                     if (data.type === 'metadata') {
-                        // メタデータ受信
-                        metadata = data;
-                        el('receive-status').textContent = `受信中: ${metadata.name} (${formatBytes(metadata.size)})`;
+                        state.metadata = data;
+                        const tag = data.isZip ? `📦 ${data.fileCount}個のファイル (ZIP)` : '📄 ファイル';
+                        el('receive-status').textContent =
+                            `${tag}: ${data.name} (${formatBytes(data.size)})`;
                         // 準備完了を知らせてデータ送信を要求
                         conn.send({ type: 'ready' });
+                        state.startTime = Date.now();
+                        state.lastReportTime = state.startTime;
                     } 
                     else if (data.type === 'chunk') {
                         // チャンクデータを配列に保存
-                        receivedChunks.push(data.data);
-                        receivedSize += data.data.byteLength;
+                        state.chunks.push(data.data);
+                        state.receivedSize += data.data.byteLength;
                         
                         // 進捗バー更新
-                        const progress = Math.min((receivedSize / metadata.size) * 100, 100).toFixed(1);
-                        el('receive-progress').style.width = progress + '%';
-                        el('receive-progress-text').textContent = progress + '%';
+                        const progress = Math.min((state.receivedSize / state.metadata.size) * 100, 100);
+                        el('receive-progress').style.width = progress.toFixed(1) + '%';
+                        el('receive-progress-text').textContent = progress.toFixed(1) + '%';
+
+                        // 速度・ETA 更新 (500msごと)
+                        const now = Date.now();
+                        if (now - state.lastReportTime >= 500) {
+                            const intervalSec = (now - state.lastReportTime) / 1000;
+                            const intervalBytes = state.receivedSize - state.lastReportBytes;
+                            const speed = intervalBytes / intervalSec;
+                            const eta = (state.metadata.size - state.receivedSize) / speed;
+                            el('receive-speed-text').textContent = `${formatBytes(speed)}/s`;
+                            el('receive-eta-text').textContent = `残り時間: ${formatTime(eta)}`;
+                            state.lastReportTime = now;
+                            state.lastReportBytes = state.receivedSize;
+                        }
                     } 
                     else if (data.type === 'eof') {
                         // 受信完了
                         conn.close();
                         peer.destroy();
-                        finishReceive(receivedChunks, metadata);
+                        finishReceive(state.chunks, state.metadata);
                     }
                 });
 
                 conn.on('close', () => {
-                    if(receivedSize < (metadata?.size || 1)) {
-                        alert("通信が切断されました。送信者がページを閉じた可能性があります。");
-                        window.location.href = window.location.pathname;
+                    if (state.metadata && state.receivedSize < state.metadata.size) {
+                        showToast("⚠️ 通信が切断されました。送信者がページを閉じた可能性があります。", 'error', 4000);
+                        if (peer && !peer.destroyed) peer.destroy();
+                        setTimeout(() => window.location.href = window.location.pathname, 2000);
                     }
                 });
             });
 
             peer.on('error', (err) => {
-                if (err.type === 'peer-unavailable') {
-                    alert("送信者が見つかりません。リンクの有効期限が切れているか、送信者が既にページを閉じています。");
-                    window.location.href = window.location.pathname;
+                console.error(err);
+                if (err && err.type === 'peer-unavailable') {
+                    showToast("送信者が見つかりません。リンクの有効期限切れか、送信者がページを閉じた可能性があります。", 'error', 4000);
+                    setTimeout(() => window.location.href = window.location.pathname, 2500);
                 } else {
-                    alert("エラーが発生しました: " + err);
+                    const msg = err && (err.type || err.message) ? `エラー: ${err.type || err.message}` : 'エラーが発生しました。';
+                    showToast(msg, 'error', 4000);
                 }
             });
         }
 
         function finishReceive(chunks, metadata) {
             // 受信したバイナリチャンクを結合して1つのファイル(Blob)にする
-            const blob = new Blob(chunks, { type: metadata.mimeType });
+            const blob = new Blob(chunks, { type: metadata.mimeType || 'application/octet-stream' });
             const url = URL.createObjectURL(blob);
+            // ページ離脱時に URL を解放（複数回ダウンロードに対応）
+            window.addEventListener('pagehide', () => URL.revokeObjectURL(url), { once: true });
 
             showView('view-receive-complete');
             
@@ -457,13 +902,23 @@
             const dlBtn = el('download-btn');
             dlBtn.href = url;
             dlBtn.download = metadata.name;
-            el('file-name-display').textContent = `${metadata.name} (${formatBytes(metadata.size)})`;
+
+            const fileLabel = metadata.isZip
+                ? `${metadata.name} (${formatBytes(metadata.size)}) - ${metadata.fileCount}個のファイルを含むZIP`
+                : `${metadata.name} (${formatBytes(metadata.size)})`;
+            el('file-name-display').textContent = fileLabel;
 
             // ファイルタイプに応じたプレビュー表示
             const previewContainer = el('preview-container');
             previewContainer.innerHTML = '';
 
-            if (metadata.mimeType.startsWith('video/')) {
+            if (metadata.isZip) {
+                const icon = document.createElement('i');
+                icon.setAttribute('data-lucide', 'archive');
+                icon.className = "w-20 h-20 text-indigo-400 py-6";
+                previewContainer.appendChild(icon);
+                lucide.createIcons();
+            } else if (metadata.mimeType.startsWith('video/')) {
                 const video = document.createElement('video');
                 video.src = url;
                 video.controls = true;
@@ -487,7 +942,10 @@
                 previewContainer.appendChild(icon);
                 lucide.createIcons();
             }
+
+            showToast('🎉 受信が完了しました！', 'success', 3000);
         }
     </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
