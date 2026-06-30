@@ -240,6 +240,11 @@
                  [送信側] 1. 初期画面（ファイル選択）
                  ========================================== -->
             <div id="view-send-init" class="view-section hidden-view">
+                <!-- 双方向モードバナー（返送モード中のみ表示） -->
+                <div id="bidirectional-banner" class="hidden bg-purple-50 border border-purple-200 text-purple-800 rounded-xl p-3 mb-4 flex items-center gap-2 text-sm">
+                    <i data-lucide="refresh-cw" class="w-4 h-4 flex-shrink-0"></i>
+                    <span><b>双方向モード</b>: 接続を維持したまま逆方向へ送ります。鍵も同じものを使い回します。</span>
+                </div>
                 <p class="text-sm text-gray-500 mb-6 text-center">
                     デバイス内のファイルを選択して共有リンクを作成します。<br>
                     すべての通信は<b class="text-indigo-600">エンドツーエンド暗号化</b>されます。
@@ -377,6 +382,11 @@
                     <p><strong>注意:</strong> ブラウザのこのタブを閉じると、その時点で共有は停止し、ファイルは失われます。相手がダウンロードを完了するまで開いたままにしてください。</p>
                 </div>
 
+                <!-- 送信完了後の「もう1つ送る」ボタン（双方向モード中のみ表示） -->
+                <button id="send-more-btn" onclick="sendAnotherFile()" class="hidden w-full bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-bold py-3 px-4 rounded-xl transition-colors mb-4 flex justify-center items-center gap-2">
+                    <i data-lucide="plus" class="w-5 h-5"></i> もう1つファイルを送る
+                </button>
+
                 <button onclick="stopSharing('共有を手動で停止しました。')" class="text-gray-500 hover:text-red-500 text-sm font-medium transition-colors underline">
                     今すぐ共有を停止して破棄する
                 </button>
@@ -475,8 +485,10 @@
         let aesKey = null;                    // 暗号化鍵（CryptoKey）
         let aesKeyB64 = '';                   // base64url形式の鍵（URL用）
         let currentPeerId = null;            // 自分のPeerID
-        let activeConn = null;                // 現在のコネクション
+        let activeConn = null;                // 現在のコネクション（双方向で使い回し）
         let reconnectAttempts = 0;
+        let isSending = false;                // 現在送信中か
+        let bidirectionalMode = false;       // 最初の送受信後に双方向モードに入る
 
         // 受信側の状態
         let recvState = null;
@@ -731,9 +743,19 @@
                 showToast("ファイルを選択してください。", 'error');
                 return;
             }
+            if (isSending) {
+                showToast("送信中です。完了までお待ちください。", 'info');
+                return;
+            }
 
             const expireMinutes = parseInt(el('expire-select').value, 10);
             largeMode = el('large-mode-toggle').checked;
+
+            // ★ 既存の双方向接続があれば、そのまま送り返すモード
+            if (bidirectionalMode && activeConn && activeConn.open) {
+                await startSharingOnExistingConnection();
+                return;
+            }
 
             // Wake Lock を最初に取得（ZIP圧縮/ハッシュ計算中のロックを防ぐ）
             await acquireWakeLock();
@@ -830,6 +852,63 @@
             });
         }
 
+        // ★ 既存の接続を使って送信（双方向モード）
+        async function startSharingOnExistingConnection() {
+            try {
+                // ZIP圧縮
+                if (selectedFiles.length >= 2) {
+                    showView('view-send-preparing');
+                    el('prepare-title').textContent = 'ファイルを圧縮しています...';
+                    el('prepare-subtitle').textContent = '複数ファイルをZIPにまとめています';
+                    const zip = new JSZip();
+                    for (const f of selectedFiles) zip.file(f.name, f);
+                    const zipBlob = await zip.generateAsync(
+                        { type: 'blob', compression: 'STORE' },
+                        (metadata) => {
+                            const pct = Math.round(metadata.percent);
+                            el('prepare-progress').style.width = pct + '%';
+                            el('prepare-progress-text').textContent = pct + '%';
+                        }
+                    );
+                    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+                    currentFileName = `p2pdrop-${stamp}.zip`;
+                    currentFile = new File([zipBlob], currentFileName, { type: 'application/zip' });
+                } else {
+                    currentFile = selectedFiles[0];
+                    currentFileName = currentFile.name;
+                    showView('view-send-preparing');
+                }
+
+                // SHA-256計算
+                if (currentFile.size <= SHA256_LIMIT) {
+                    el('prepare-title').textContent = 'ハッシュ値を計算中...';
+                    el('prepare-subtitle').textContent = `整合性検証用のSHA-256を生成中 (${formatBytes(currentFile.size)})`;
+                    el('prepare-progress').style.width = '50%';
+                    el('prepare-progress-text').textContent = '計算中...';
+                    currentFileHash = await computeFileSha256(currentFile);
+                } else {
+                    currentFileHash = null;
+                }
+
+                el('prepare-progress').style.width = '100%';
+                el('prepare-progress-text').textContent = '100%';
+            } catch (err) {
+                console.error('Reply prep failed:', err);
+                showToast(`準備エラー: ${err.message || err}`, 'error', 4000);
+                return;
+            }
+
+            // 既存の activeConn で送信開始（鍵も既存の aesKey を使い回し）
+            showView('view-send-sharing');
+            el('send-progress').style.width = '0%';
+            el('send-progress-text').textContent = '0%';
+            el('send-speed-text').textContent = '--';
+            // 返送モード中バナーを表示
+            const banner = el('bidirectional-banner');
+            if (banner) banner.classList.remove('hidden');
+            handleSenderConnection(activeConn);
+        }
+
         function renderQRCode(url) {
             const container = el('qrcode-container');
             container.innerHTML = '';
@@ -855,7 +934,8 @@
             let lastReportTime = sendStartTime;
             let lastReportBytes = 0;
 
-            conn.on('open', () => {
+            // 最初の送信時のみ conn.open を待ちメタデータ送信
+            const sendMetadata = () => {
                 conn.send({
                     type: 'metadata',
                     name: currentFileName || currentFile.name,
@@ -869,47 +949,119 @@
                     totalChunks: Math.ceil(currentFile.size / CHUNK_SIZE),
                     largeMode: largeMode
                 });
-            });
+            };
+            if (conn.open) {
+                sendMetadata();
+            } else {
+                conn.on('open', sendMetadata);
+            }
 
             el('send-progress-area').classList.remove('hidden');
 
-            conn.on('data', (data) => {
-                if (data.type === 'ready') {
-                    startChunkIndex = 0;
-                    sendStartTime = Date.now();
-                    lastReportTime = sendStartTime;
-                    lastReportBytes = 0;
-                    sendChunks(conn, currentFile, startChunkIndex, sendStartTime, lastReportTime, lastReportBytes);
-                } else if (data.type === 'resume') {
-                    startChunkIndex = data.fromChunk || 0;
-                    sendStartTime = Date.now();
-                    lastReportTime = sendStartTime;
-                    lastReportBytes = startChunkIndex * CHUNK_SIZE;
-                    showToast(`🔄 チャンク${startChunkIndex}から再開`, 'info');
-                    sendChunks(conn, currentFile, startChunkIndex, sendStartTime, lastReportTime, lastReportBytes);
-                }
-            });
+            // リスナー重複登録を防ぐためフラグを見る
+            if (!conn.__listenersRegistered) {
+                conn.__listenersRegistered = true;
 
-            conn.on('close', () => {
-                el('connection-status').innerHTML = `
-                    <span class="inline-block w-2 h-2 bg-gray-400 rounded-full"></span>
-                    接続が終了しました（再接続待機中...）
-                `;
-            });
+                conn.on('data', (data) => {
+                    if (data.type === 'ready') {
+                        startChunkIndex = 0;
+                        sendStartTime = Date.now();
+                        lastReportTime = sendStartTime;
+                        lastReportBytes = 0;
+                        sendChunks(conn, currentFile, startChunkIndex, sendStartTime, lastReportTime, lastReportBytes);
+                    } else if (data.type === 'resume') {
+                        startChunkIndex = data.fromChunk || 0;
+                        sendStartTime = Date.now();
+                        lastReportTime = sendStartTime;
+                        lastReportBytes = startChunkIndex * CHUNK_SIZE;
+                        showToast(`🔄 チャンク${startChunkIndex}から再開`, 'info');
+                        sendChunks(conn, currentFile, startChunkIndex, sendStartTime, lastReportTime, lastReportBytes);
+                    }
+                    // ★ 双方向モード: 逆方向からの metadata を受信したら受信モードに切り替え
+                    else if (data.type === 'metadata' && bidirectionalMode && !isSending) {
+                        startReceivingReply(conn, data);
+                    }
+                    else if ((data.type === 'chunk' || data.type === 'eof') && recvState) {
+                        // 受信中のチャンク処理と同じロジックを走らせる
+                        handleReceivedData(conn, data);
+                    }
+                });
+
+                conn.on('close', () => {
+                    el('connection-status').innerHTML = `
+                        <span class="inline-block w-2 h-2 bg-gray-400 rounded-full"></span>
+                        接続が終了しました
+                    `;
+                    isSending = false;
+                });
+            }
+        }
+
+        // 双方向モードのアイドル状態（送信者が送信完了後、受信者からの返送を待機）
+        function enterBidirectionalIdleState() {
+            el('connection-status').innerHTML = `
+                <span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                接続維持中・相手からの返送を待機中
+            `;
+            // 「もう1つ送る」ボタンを表示するためにUIを更新
+            const moreBtn = el('send-more-btn');
+            if (moreBtn) moreBtn.classList.remove('hidden');
+        }
+
+        // 双方向モードで「もう1つ送る」ボタンが押された時
+        function sendAnotherFile() {
+            if (!activeConn || !activeConn.open) {
+                showToast('⚠️ 接続が切れています。', 'error');
+                return;
+            }
+            selectedFiles = [];
+            initSendMode();
+            const banner = el('bidirectional-banner');
+            if (banner) banner.classList.remove('hidden');
+            const startBtn = document.querySelector('button[onclick="startSharing()"]');
+            if (startBtn) {
+                startBtn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i> 暗号化して送信';
+                lucide.createIcons();
+            }
+        }
+
+        // 双方向モードで返送受信を開始
+        function startReceivingReply(conn, metadataData) {
+            recvState = {
+                chunks: new Map(),
+                metadata: null,
+                receivedBytes: 0,
+                receivedChunks: 0,
+                startTime: Date.now(),
+                lastReportTime: Date.now(),
+                lastReportBytes: 0,
+                writer: null,
+                useStreamSaver: false,
+                decryptErrors: 0
+            };
+            showView('view-receive-loading');
+            showToast('📥 相手からの返送を受信中...', 'info', 3000);
+            // メタデータ処理は handleReceivedData に全て委ねる
+            handleReceivedData(conn, metadataData);
         }
 
         async function sendChunks(conn, file, fromChunkIndex, sendStartTime, lastReportTime, lastReportBytes) {
             let currentChunkIndex = fromChunkIndex;
             const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+            isSending = true;
 
             const sendOne = async () => {
-                if (!conn.open) return;
+                if (!conn.open) { isSending = false; return; }
                 if (currentChunkIndex >= totalChunks) {
                     conn.send({ type: 'eof' });
                     el('send-progress').style.width = '100%';
                     el('send-progress-text').textContent = '100%';
                     el('send-speed-text').textContent = '✅ 送信完了';
-                    showToast('✅ 送信が完了しました', 'success');
+                    showToast('✅ 送信が完了しました。双方向モードに移行', 'success', 3000);
+                    isSending = false;
+                    // 送信完了後も接続を維持 → 双方向モードへ
+                    bidirectionalMode = true;
+                    enterBidirectionalIdleState();
                     return;
                 }
                 // バッファ管理
@@ -971,12 +1123,15 @@
         function stopSharing(alertMsg = null) {
             if (alertMsg) showToast(alertMsg, 'info', 3000);
             if (peer) { peer.destroy(); peer = null; }
+            activeConn = null;
             currentFile = null;
             currentFileName = '';
             currentFileHash = null;
             selectedFiles = [];
             aesKey = null;
             aesKeyB64 = '';
+            bidirectionalMode = false;
+            isSending = false;
             releaseWakeLock();
             if (countdownInterval) clearInterval(countdownInterval);
             setTimeout(() => {
@@ -1204,13 +1359,13 @@
                 }
             }
             else if (data.type === 'eof') {
-                conn.close();
-                if (peer && !peer.destroyed) peer.destroy();
-                finishReceive();
+                // ★ 接続は維持して双方向モードに入る
+                bidirectionalMode = true;
+                finishReceive(conn);
             }
         }
 
-        async function finishReceive() {
+        async function finishReceive(conn) {
             const metadata = recvState.metadata;
 
             // データの組み立て
@@ -1338,32 +1493,36 @@
 
             // メモリ解放（Blobモードのみ、ダウンロード後）
             recvState.chunks.clear();
-            showToast('🎉 受信が完了しました！', 'success', 3000);
+            showToast('🎉 受信が完了しました！「返送」でそのまま双方向チャットもできます', 'success', 4000);
         }
 
         // ========================================================
-        // 双方向送信モード（受信完了後、逆方向に送る）
+        // 双方向送信モード（受信完了後、同じ接続で逆方向に送る）
         // ========================================================
         function startReplyMode() {
-            // 状態をリセットして送信モードへ
+            if (!activeConn || !activeConn.open) {
+                showToast('⚠️ 接続が切れています。トップからやり直してください。', 'error', 4000);
+                return;
+            }
+            // ★ 接続を維持したまま、送信モードのファイル選択画面へ
             selectedFiles = [];
-            aesKey = null;
-            aesKeyB64 = '';
             recvState = null;
-            if (peer && !peer.destroyed) {
-                try { peer.destroy(); } catch(e) {}
-            }
-            peer = null;
-            // URLパラメータとハッシュの両方をクリア（履歴は維持）
-            history.replaceState(null, '', window.location.pathname);
-            // ハッシュを明示的にクリア（replaceState だけでは残る場合あり）
-            if (window.location.hash) {
-                history.replaceState(null, '', window.location.pathname + window.location.search);
-            }
-            showToast('📤 返送モードに切替えました。ファイルを選択してください。', 'info', 3000);
+            bidirectionalMode = true;
+            // 鍵は既存の aesKey をそのまま使う（リセットしない）
+
+            showToast('📤 接続を維持したまま返送モードに切替えました', 'info', 3000);
             initSendMode();
+            // 双方向モード中であることを UI で明示
+            const banner = el('bidirectional-banner');
+            if (banner) banner.classList.remove('hidden');
+            // ボタンのラベルを「暗号化して送信」に変更
+            const startBtn = document.querySelector('button[onclick="startSharing()"]');
+            if (startBtn) {
+                startBtn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i> 暗号化して送信';
+                lucide.createIcons();
+            }
         }
     </script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
