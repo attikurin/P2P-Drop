@@ -196,6 +196,274 @@
             border-radius: 4px;
             margin-top: 4px;
         }
+
+        /* チャット UI */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 480px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #f9fafb;
+        }
+        @media (max-width: 480px) {
+            .chat-container { height: 420px; }
+        }
+        .chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            scroll-behavior: smooth;
+        }
+        .chat-history::-webkit-scrollbar { width: 6px; }
+        .chat-history::-webkit-scrollbar-thumb {
+            background: #c7d2fe;
+            border-radius: 3px;
+        }
+        .chat-bubble {
+            max-width: 80%;
+            width: fit-content;
+            padding: 8px 12px;
+            border-radius: 16px;
+            font-size: 14px;
+            word-break: break-word;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            animation: bubble-in 0.2s ease-out;
+            flex-shrink: 0;
+        }
+        @media (max-width: 480px) {
+            .chat-bubble { max-width: 88%; font-size: 13px; }
+        }
+        @keyframes bubble-in {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .chat-bubble.mine {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-bubble.theirs {
+            align-self: flex-start;
+            background: white;
+            color: #1f2937;
+            border: 1px solid #e5e7eb;
+            border-bottom-left-radius: 4px;
+        }
+        .chat-bubble.system {
+            align-self: center;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            box-shadow: none;
+            max-width: 90%;
+            text-align: center;
+        }
+        .chat-bubble.file {
+            cursor: default;
+            display: inline-block;
+            min-width: 200px;
+            max-width: 280px;
+            padding: 10px 12px;
+            box-sizing: border-box;
+        }
+        @media (max-width: 480px) {
+            .chat-bubble.file {
+                min-width: 0;
+                width: 85%;
+                max-width: 85%;
+            }
+        }
+        .chat-bubble.file.mine {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white !important;
+        }
+        .chat-bubble.file.theirs {
+            background: white;
+            color: #1f2937 !important;
+            border-left: 3px solid #10b981;
+        }
+        .chat-bubble.file .chat-file-name,
+        .chat-bubble.file .chat-file-size {
+            color: inherit;
+        }
+        .chat-meta {
+            font-size: 10px;
+            color: #9ca3af;
+            margin-top: 2px;
+            align-self: flex-end;
+        }
+        .chat-bubble.theirs + .chat-meta { align-self: flex-start; }
+        .chat-input-area {
+            display: flex;
+            gap: 6px;
+            padding: 8px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            align-items: flex-end;
+        }
+        .chat-input {
+            flex: 1;
+            min-width: 0;
+            border: 1px solid #d1d5db;
+            border-radius: 18px;
+            padding: 8px 14px;
+            font-size: 16px;
+            resize: none;
+            outline: none;
+            font-family: inherit;
+            max-height: 100px;
+            min-height: 38px;
+            line-height: 1.4;
+        }
+        @media (min-width: 481px) {
+            .chat-input { font-size: 14px; }
+        }
+        @media (max-width: 480px) {
+            .chat-input { padding: 8px 10px; }
+            .chat-input::placeholder { font-size: 14px; }
+        }
+        .chat-input:focus { border-color: #6366f1; }
+        .chat-send-btn,
+        .chat-attach-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+        @media (max-width: 480px) {
+            .chat-send-btn, .chat-attach-btn { width: 36px; height: 36px; }
+            .chat-input-area { padding: 6px; gap: 4px; }
+        }
+        .chat-send-btn {
+            background: #6366f1;
+            color: white;
+        }
+        .chat-send-btn:hover { background: #4f46e5; }
+        .chat-send-btn:disabled {
+            background: #d1d5db;
+            cursor: not-allowed;
+        }
+        .chat-attach-btn {
+            background: #f3f4f6;
+            color: #6366f1;
+        }
+        .chat-attach-btn:hover { background: #e0e7ff; }
+        .chat-file-card {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+        .chat-file-icon {
+            font-size: 22px;
+            flex-shrink: 0;
+            line-height: 1;
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .chat-file-info {
+            flex: 1 1 auto;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .chat-file-name {
+            font-weight: 600;
+            word-break: break-all;
+            font-size: 13px;
+            line-height: 1.3;
+            margin-bottom: 2px;
+        }
+        .chat-file-size {
+            font-size: 11px;
+            opacity: 0.85;
+        }
+        .chat-file-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .chat-file-btn {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.25);
+            color: inherit;
+            text-decoration: none;
+            border: 1px solid rgba(255,255,255,0.3);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .chat-bubble.file.theirs .chat-file-btn {
+            background: #f3f4f6;
+            color: #4338ca;
+            border-color: #c7d2fe;
+        }
+        .chat-file-btn:hover { background: rgba(255,255,255,0.45); }
+        .chat-bubble.file.theirs .chat-file-btn:hover { background: #e0e7ff; }
+
+        /* チャット進捗バー（ファイル送信中） */
+        .chat-progress-bar {
+            height: 3px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        .chat-bubble.file.theirs .chat-progress-bar {
+            background: #e5e7eb;
+        }
+        .chat-progress-fill {
+            height: 100%;
+            background: white;
+            transition: width 0.2s ease;
+        }
+        .chat-bubble.file.theirs .chat-progress-fill {
+            background: #10b981;
+        }
+
+        /* 接続バー （チャット上部）*/
+        .chat-status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 12px;
+            gap: 8px;
+            flex-wrap: nowrap;
+        }
+        .chat-status-bar > span {
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        @media (max-width: 480px) {
+            .chat-status-bar { font-size: 11px; padding: 6px 10px; }
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col items-center justify-center py-10 px-4">
@@ -423,7 +691,56 @@
             </div>
 
             <!-- ==========================================
-                 [受信側] 4. 受信完了・ダウンロード画面
+                 [共通] チャット画面（接続成立後、送受信とメッセージの両方をここで処理）
+                 ========================================== -->
+            <div id="view-chat" class="view-section hidden-view">
+                <h2 class="text-xl font-bold mb-2 text-center flex items-center justify-center gap-2">
+                    <i data-lucide="messages-square" class="w-5 h-5 text-indigo-600"></i>
+                    暗号化チャット
+                </h2>
+                <p class="text-xs text-green-700 font-medium mb-3 flex items-center justify-center gap-1 px-2 text-center">
+                    <i data-lucide="lock" class="w-3 h-3 flex-shrink-0"></i>
+                    <span>メッセージ・ファイルはE2EE暗号化</span>
+                </p>
+
+                <div class="chat-container">
+                    <!-- 接続状態バー -->
+                    <div id="chat-status-bar" class="chat-status-bar">
+                        <span class="flex items-center gap-1.5">
+                            <span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                            <span id="chat-status-text">接続中</span>
+                        </span>
+                        <span id="chat-expire-text" class="text-gray-500 flex-shrink-0" aria-live="polite">--:--</span>
+                    </div>
+
+                    <!-- チャット履歴 -->
+                    <div id="chat-history" class="chat-history" aria-live="polite">
+                        <!-- JSで動的追加 -->
+                    </div>
+
+                    <!-- 入力エリア -->
+                    <div class="chat-input-area">
+                        <button id="chat-attach-btn" class="chat-attach-btn" type="button" aria-label="ファイルを添付" title="ファイルを送る">
+                            <i data-lucide="paperclip" class="w-4 h-4"></i>
+                        </button>
+                        <input type="file" id="chat-file-input" class="hidden" multiple>
+                        <textarea id="chat-input" class="chat-input" placeholder="メッセージを入力..." rows="1" title="Enterで送信、Shift+Enterで改行"></textarea>
+                        <button id="chat-send-btn" class="chat-send-btn" type="button" aria-label="送信" title="送信 (Enter)">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-4 sm:mt-3 flex flex-col sm:flex-row items-center sm:justify-between gap-2 sm:gap-2 text-xs text-center">
+                    <button onclick="stopSharing('チャットを終了しました。')" class="text-gray-500 hover:text-red-500 font-medium transition-colors underline order-2 sm:order-1">
+                        チャットを終了して破棄
+                    </button>
+                    <span class="text-gray-400 order-1 sm:order-2">タブを閉じると履歴は消えます</span>
+                </div>
+            </div>
+
+            <!-- ==========================================
+                 [受信側] 4. 受信完了・ダウンロード画面（レガシー・チャット未対応時のフォールバック）
                  ========================================== -->
             <div id="view-receive-complete" class="view-section hidden-view text-center">
                 <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
@@ -489,6 +806,8 @@
         let reconnectAttempts = 0;
         let isSending = false;                // 現在送信中か
         let bidirectionalMode = false;       // 最初の送受信後に双方向モードに入る
+        let chatInitialized = false;         // チャットUIのイベント登録済みか
+        const fileRegistry = new Map();      // チャット内のファイル ID -> { blob/url/metadata }
 
         // 受信側の状態
         let recvState = null;
@@ -540,6 +859,15 @@
             return await crypto.subtle.decrypt(
                 { name: 'AES-GCM', iv }, key, ct
             );
+        }
+        // テキストの暗号化/復号（UTF-8↔ArrayBuffer変換付き）
+        async function encryptText(key, text) {
+            const enc = new TextEncoder().encode(text);
+            return await encryptChunk(key, enc.buffer);
+        }
+        async function decryptText(key, encrypted) {
+            const buf = await decryptChunk(key, encrypted);
+            return new TextDecoder().decode(buf);
         }
         // ファイル全体のSHA-256ハッシュを計算（チャンクストリーミング）
         async function computeFileSha256(file, onProgress) {
@@ -794,10 +1122,8 @@
                     el('prepare-progress').style.width = '30%';
                     el('prepare-progress-text').textContent = '計算中...';
                     currentFileHash = await computeFileSha256(currentFile);
-                    if (currentFileHash) console.log('SHA-256:', currentFileHash);
                 } else {
                     currentFileHash = null;
-                    console.log('Hash skipped: file > 500MB');
                 }
 
                 // Step 3: AES-GCM 鍵を生成
@@ -852,7 +1178,7 @@
             });
         }
 
-        // ★ 既存の接続を使って送信（双方向モード）
+        // ★ 既存の接続を使って送信（双方向モード・レガシーフロー用）
         async function startSharingOnExistingConnection() {
             try {
                 // ZIP圧縮
@@ -899,13 +1225,7 @@
             }
 
             // 既存の activeConn で送信開始（鍵も既存の aesKey を使い回し）
-            showView('view-send-sharing');
-            el('send-progress').style.width = '0%';
-            el('send-progress-text').textContent = '0%';
-            el('send-speed-text').textContent = '--';
-            // 返送モード中バナーを表示
-            const banner = el('bidirectional-banner');
-            if (banner) banner.classList.remove('hidden');
+            // チャットビューに移行して進捗バーをチャットバブルとして表示
             handleSenderConnection(activeConn);
         }
 
@@ -923,10 +1243,6 @@
         }
 
         function handleSenderConnection(conn) {
-            el('connection-status').innerHTML = `
-                <span class="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
-                受信者と接続しました。送信を準備中...
-            `;
             showToast('🤝 受信者が接続しました', 'info');
 
             let startChunkIndex = 0;        // Resume時に再開する位置
@@ -934,10 +1250,35 @@
             let lastReportTime = sendStartTime;
             let lastReportBytes = 0;
 
+            // チャットUIに遷移し、「ファイル送信中」をチャットバブルとして表示
+            const fileMsgId = `init-${Date.now()}`;
+            if (currentFile) {
+                // 初期ファイル送信もチャットとして表示
+                switchToChatView('【接続成功】ファイルとメッセージをやり取りできます');
+                addChatBubble({
+                    id: fileMsgId,
+                    kind: 'file',
+                    fileName: currentFileName || currentFile.name,
+                    fileSize: currentFile.size,
+                    isMine: true,
+                    isZip: selectedFiles.length >= 2,
+                    fileCount: selectedFiles.length,
+                    progress: 0,
+                    timestamp: Date.now()
+                });
+                fileRegistry.set(fileMsgId, {
+                    type: 'sending',
+                    file: currentFile,
+                    totalChunks: Math.ceil(currentFile.size / CHUNK_SIZE)
+                });
+            }
+
             // 最初の送信時のみ conn.open を待ちメタデータ送信
             const sendMetadata = () => {
+                if (!currentFile) return; // チャットのみ接続の場合は metadata 送信なし
                 conn.send({
                     type: 'metadata',
+                    id: fileMsgId,
                     name: currentFileName || currentFile.name,
                     mimeType: currentFile.type || 'application/octet-stream',
                     size: currentFile.size,
@@ -947,7 +1288,8 @@
                     encrypted: true,
                     chunkSize: CHUNK_SIZE,
                     totalChunks: Math.ceil(currentFile.size / CHUNK_SIZE),
-                    largeMode: largeMode
+                    largeMode: largeMode,
+                    fromChat: true
                 });
             };
             if (conn.open) {
@@ -956,29 +1298,35 @@
                 conn.on('open', sendMetadata);
             }
 
-            el('send-progress-area').classList.remove('hidden');
-
             // リスナー重複登録を防ぐためフラグを見る
             if (!conn.__listenersRegistered) {
                 conn.__listenersRegistered = true;
 
                 conn.on('data', (data) => {
                     if (data.type === 'ready') {
+                        // ready は現在送信中のファイルに対するもの
                         startChunkIndex = 0;
                         sendStartTime = Date.now();
                         lastReportTime = sendStartTime;
                         lastReportBytes = 0;
-                        sendChunks(conn, currentFile, startChunkIndex, sendStartTime, lastReportTime, lastReportBytes);
+                        // 現在送信中の currentFile の fileMsgId を使う
+                        const targetFileId = data.id || fileMsgId;
+                        sendChunks(conn, currentFile, startChunkIndex, sendStartTime, lastReportTime, lastReportBytes, targetFileId);
                     } else if (data.type === 'resume') {
                         startChunkIndex = data.fromChunk || 0;
                         sendStartTime = Date.now();
                         lastReportTime = sendStartTime;
                         lastReportBytes = startChunkIndex * CHUNK_SIZE;
                         showToast(`🔄 チャンク${startChunkIndex}から再開`, 'info');
-                        sendChunks(conn, currentFile, startChunkIndex, sendStartTime, lastReportTime, lastReportBytes);
+                        const targetFileId = data.id || fileMsgId;
+                        sendChunks(conn, currentFile, startChunkIndex, sendStartTime, lastReportTime, lastReportBytes, targetFileId);
+                    }
+                    // ★ メッセージ受信（双方向チャット）
+                    else if (data.type === 'message') {
+                        handleIncomingMessage(data);
                     }
                     // ★ 双方向モード: 逆方向からの metadata を受信したら受信モードに切り替え
-                    else if (data.type === 'metadata' && bidirectionalMode && !isSending) {
+                    else if (data.type === 'metadata' && !isSending) {
                         startReceivingReply(conn, data);
                     }
                     else if ((data.type === 'chunk' || data.type === 'eof') && recvState) {
@@ -988,41 +1336,59 @@
                 });
 
                 conn.on('close', () => {
-                    el('connection-status').innerHTML = `
-                        <span class="inline-block w-2 h-2 bg-gray-400 rounded-full"></span>
-                        接続が終了しました
-                    `;
+                    const statusText = el('chat-status-text');
+                    if (statusText) statusText.textContent = '接続が終了しました';
+                    const statusBar = el('chat-status-bar');
+                    if (statusBar) {
+                        const dot = statusBar.querySelector('.bg-green-500');
+                        if (dot) {
+                            dot.classList.remove('bg-green-500', 'animate-pulse');
+                            dot.classList.add('bg-gray-400');
+                        }
+                    }
+                    addChatBubble({ kind: 'system', text: '接続が終了しました', timestamp: Date.now() });
                     isSending = false;
                 });
             }
         }
 
-        // 双方向モードのアイドル状態（送信者が送信完了後、受信者からの返送を待機）
-        function enterBidirectionalIdleState() {
-            el('connection-status').innerHTML = `
-                <span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                接続維持中・相手からの返送を待機中
-            `;
-            // 「もう1つ送る」ボタンを表示するためにUIを更新
-            const moreBtn = el('send-more-btn');
-            if (moreBtn) moreBtn.classList.remove('hidden');
+        // 受信したチャットメッセージを処理
+        async function handleIncomingMessage(data) {
+            try {
+                if (data.kind === 'text') {
+                    const text = await decryptText(aesKey, data.data);
+                    addChatBubble({
+                        id: data.id,
+                        kind: 'text',
+                        text: text,
+                        isMine: false,
+                        timestamp: data.timestamp || Date.now()
+                    });
+                }
+            } catch (err) {
+                console.error('Message decrypt failed:', err);
+                addChatBubble({
+                    kind: 'system',
+                    text: '⚠️ メッセージの復号に失敗しました',
+                    timestamp: Date.now()
+                });
+            }
         }
 
-        // 双方向モードで「もう1つ送る」ボタンが押された時
+        // 双方向モードのアイドル状態（チャットUIでメッセージ/ファイルを待機）
+        function enterBidirectionalIdleState() {
+            // チャットビューに遷移済みのため、特にやることはなし
+        }
+
+        // 双方向モードで「もう1つ送る」ボタン（チャットUIで代替）
         function sendAnotherFile() {
             if (!activeConn || !activeConn.open) {
                 showToast('⚠️ 接続が切れています。', 'error');
                 return;
             }
-            selectedFiles = [];
-            initSendMode();
-            const banner = el('bidirectional-banner');
-            if (banner) banner.classList.remove('hidden');
-            const startBtn = document.querySelector('button[onclick="startSharing()"]');
-            if (startBtn) {
-                startBtn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i> 暗号化して送信';
-                lucide.createIcons();
-            }
+            // チャットビューのファイル添付ボタンを使うよう促す
+            switchToChatView();
+            showToast('📎 下部のクリップボタンからファイルを送れます', 'info', 3500);
         }
 
         // 双方向モードで返送受信を開始
@@ -1037,15 +1403,32 @@
                 lastReportBytes: 0,
                 writer: null,
                 useStreamSaver: false,
-                decryptErrors: 0
+                decryptErrors: 0,
+                fileMsgId: metadataData.id || `recv-${Date.now()}`
             };
-            showView('view-receive-loading');
-            showToast('📥 相手からの返送を受信中...', 'info', 3000);
+            // チャットビュー中の場合はチャットバブルとして表示
+            const inChatView = !document.getElementById('view-chat').classList.contains('hidden-view');
+            if (inChatView || bidirectionalMode) {
+                addChatBubble({
+                    id: recvState.fileMsgId,
+                    kind: 'file',
+                    fileName: metadataData.name,
+                    fileSize: metadataData.size,
+                    isMine: false,
+                    isZip: !!metadataData.isZip,
+                    fileCount: metadataData.fileCount || 1,
+                    progress: 0,
+                    timestamp: Date.now()
+                });
+            } else {
+                showView('view-receive-loading');
+                showToast('📥 相手からの返送を受信中...', 'info', 3000);
+            }
             // メタデータ処理は handleReceivedData に全て委ねる
             handleReceivedData(conn, metadataData);
         }
 
-        async function sendChunks(conn, file, fromChunkIndex, sendStartTime, lastReportTime, lastReportBytes) {
+        async function sendChunks(conn, file, fromChunkIndex, sendStartTime, lastReportTime, lastReportBytes, fileMsgId) {
             let currentChunkIndex = fromChunkIndex;
             const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
             isSending = true;
@@ -1053,15 +1436,15 @@
             const sendOne = async () => {
                 if (!conn.open) { isSending = false; return; }
                 if (currentChunkIndex >= totalChunks) {
-                    conn.send({ type: 'eof' });
-                    el('send-progress').style.width = '100%';
-                    el('send-progress-text').textContent = '100%';
-                    el('send-speed-text').textContent = '✅ 送信完了';
-                    showToast('✅ 送信が完了しました。双方向モードに移行', 'success', 3000);
+                    conn.send({ type: 'eof', id: fileMsgId });
+                    // チャットバブルの進捗を 100% に
+                    if (fileMsgId) {
+                        updateChatFileProgress(fileMsgId, 100);
+                        setChatFileComplete(fileMsgId, { integrityLabel: '✅ 送信完了' });
+                    }
+                    showToast('✅ 送信完了。チャットでやり取りを続けられます', 'success', 3000);
                     isSending = false;
-                    // 送信完了後も接続を維持 → 双方向モードへ
                     bidirectionalMode = true;
-                    enterBidirectionalIdleState();
                     return;
                 }
                 // バッファ管理
@@ -1074,21 +1457,14 @@
                 const plaintext = await slice.arrayBuffer();
                 try {
                     const encrypted = await encryptChunk(aesKey, plaintext);
-                    conn.send({ type: 'chunk', index: currentChunkIndex, data: encrypted });
+                    conn.send({ type: 'chunk', index: currentChunkIndex, data: encrypted, id: fileMsgId });
                     currentChunkIndex++;
                     const sentBytes = Math.min(currentChunkIndex * CHUNK_SIZE, file.size);
-                    // 進捗UI
                     const pct = (sentBytes / file.size) * 100;
-                    el('send-progress').style.width = pct.toFixed(1) + '%';
-                    el('send-progress-text').textContent = pct.toFixed(1) + '%';
+                    // チャットバブルの進捗を更新
+                    if (fileMsgId) updateChatFileProgress(fileMsgId, pct);
                     const now = Date.now();
                     if (now - lastReportTime >= 500) {
-                        const intervalSec = (now - lastReportTime) / 1000;
-                        const intervalBytes = sentBytes - lastReportBytes;
-                        const speed = intervalBytes / intervalSec;
-                        const eta = (file.size - sentBytes) / speed;
-                        el('send-speed-text').textContent =
-                            `${formatBytes(speed)}/s ・ 残り ${formatTime(eta)}`;
                         lastReportTime = now;
                         lastReportBytes = sentBytes;
                     }
@@ -1104,12 +1480,15 @@
         function startCountdown(seconds) {
             shareEndTime = Date.now() + seconds * 1000;
             const timeDisplay = el('countdown-display');
+            const chatExpireText = el('chat-expire-text');
             const update = () => {
                 const remain = Math.max(0, Math.ceil((shareEndTime - Date.now()) / 1000));
                 const h = Math.floor(remain / 3600);
                 const m = Math.floor((remain % 3600) / 60).toString().padStart(2, '0');
                 const s = (remain % 60).toString().padStart(2, '0');
-                timeDisplay.textContent = h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+                const label = h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+                if (timeDisplay) timeDisplay.textContent = label;
+                if (chatExpireText) chatExpireText.textContent = window.innerWidth < 480 ? `⏳ ${label}` : `消去まで ${label}`;
                 if (remain <= 0) {
                     clearInterval(countdownInterval);
                     showToast("⏰ 有効期限が経過したため共有を停止しました。", 'info', 4000);
@@ -1272,10 +1651,28 @@
 
         async function handleReceivedData(conn, data) {
             if (data.type === 'metadata') {
+                // チャットビューでは、初期化されていない場合は初期化する
+                if (!recvState) {
+                    recvState = {
+                        chunks: new Map(),
+                        metadata: null,
+                        receivedBytes: 0,
+                        receivedChunks: 0,
+                        startTime: Date.now(),
+                        lastReportTime: Date.now(),
+                        lastReportBytes: 0,
+                        writer: null,
+                        useStreamSaver: false,
+                        decryptErrors: 0,
+                        fileMsgId: data.id || `recv-${Date.now()}`
+                    };
+                }
                 recvState.metadata = data;
+                if (!recvState.fileMsgId) recvState.fileMsgId = data.id || `recv-${Date.now()}`;
                 const tag = data.isZip ? `📦 ${data.fileCount}個のファイル (ZIP)` : '📄 ファイル';
                 const encTag = data.encrypted ? ' 🔒' : '';
-                el('receive-status').textContent =
+                const statusEl = el('receive-status');
+                if (statusEl) statusEl.textContent =
                     `${tag}${encTag}: ${data.name} (${formatBytes(data.size)})`;
 
                 // StreamSaver を使うかどうか判定
@@ -1301,9 +1698,9 @@
                 // 既受信のチャンク数を送信側に通知（Resume）
                 const fromChunk = recvState.receivedChunks;
                 if (fromChunk > 0) {
-                    conn.send({ type: 'resume', fromChunk });
+                    conn.send({ type: 'resume', fromChunk, id: recvState.fileMsgId });
                 } else {
-                    conn.send({ type: 'ready' });
+                    conn.send({ type: 'ready', id: recvState.fileMsgId });
                 }
             }
             else if (data.type === 'chunk') {
@@ -1329,10 +1726,18 @@
                     recvState.receivedChunks = Math.max(recvState.receivedChunks, data.index + 1);
                     recvState.decryptErrors = 0; // 成功したのでリセット
 
-                    // 進捗バー更新
+                    // チャットバブルの進捗も更新
+                    if (recvState.fileMsgId) {
+                        const chatPct = Math.min((recvState.receivedBytes / recvState.metadata.size) * 100, 100);
+                        updateChatFileProgress(recvState.fileMsgId, chatPct);
+                    }
+
+                    // 進捗バー更新（受信中ビューが表示されている場合のみ）
                     const progress = Math.min((recvState.receivedBytes / recvState.metadata.size) * 100, 100);
-                    el('receive-progress').style.width = progress.toFixed(1) + '%';
-                    el('receive-progress-text').textContent = progress.toFixed(1) + '%';
+                    const rp = el('receive-progress');
+                    const rpt = el('receive-progress-text');
+                    if (rp) rp.style.width = progress.toFixed(1) + '%';
+                    if (rpt) rpt.textContent = progress.toFixed(1) + '%';
 
                     const now = Date.now();
                     if (now - recvState.lastReportTime >= 500) {
@@ -1340,8 +1745,10 @@
                         const intervalBytes = recvState.receivedBytes - recvState.lastReportBytes;
                         const speed = intervalBytes / intervalSec;
                         const eta = (recvState.metadata.size - recvState.receivedBytes) / speed;
-                        el('receive-speed-text').textContent = `${formatBytes(speed)}/s`;
-                        el('receive-eta-text').textContent = `残り時間: ${formatTime(eta)}`;
+                        const rs = el('receive-speed-text');
+                        const re = el('receive-eta-text');
+                        if (rs) rs.textContent = `${formatBytes(speed)}/s`;
+                        if (re) re.textContent = `残り時間: ${formatTime(eta)}`;
                         recvState.lastReportTime = now;
                         recvState.lastReportBytes = recvState.receivedBytes;
                     }
@@ -1362,11 +1769,14 @@
                 // ★ 接続は維持して双方向モードに入る
                 bidirectionalMode = true;
                 finishReceive(conn);
+                // 受信完了後、受信状態をリセットして次の送信を受けられるように
+                setTimeout(() => { recvState = null; }, 500);
             }
         }
 
         async function finishReceive(conn) {
             const metadata = recvState.metadata;
+            const fileMsgId = recvState.fileMsgId;
 
             // データの組み立て
             let blob = null;
@@ -1392,11 +1802,37 @@
                     const receivedHash = Array.from(new Uint8Array(hashBuf))
                         .map(b => b.toString(16).padStart(2, '0')).join('');
                     integrityOk = receivedHash === metadata.sha256;
-                    console.log('Expected:', metadata.sha256);
-                    console.log('Received:', receivedHash);
+                    if (!integrityOk) {
+                        console.warn('Hash mismatch - Expected:', metadata.sha256, 'Received:', receivedHash);
+                    }
                 } catch (err) {
                     console.warn('Hash verification failed:', err);
                 }
+            }
+
+            // チャットビューに入っているか、双方向モード中ならチャットに統合表示
+            const inChatView = !document.getElementById('view-chat').classList.contains('hidden-view');
+            if (inChatView || bidirectionalMode || metadata.fromChat) {
+                // チャットバブルにダウンロードリンクをつける
+                if (!chatInitialized) initChatUI();
+                showView('view-chat');
+                let downloadUrl = null;
+                if (blob) {
+                    downloadUrl = URL.createObjectURL(blob);
+                    window.addEventListener('pagehide', () => URL.revokeObjectURL(downloadUrl), { once: true });
+                    fileRegistry.set(fileMsgId, { type: 'received', blob, url: downloadUrl, metadata });
+                }
+                const integrityLabel = recvState.useStreamSaver
+                    ? '💾 Stream保存'
+                    : (integrityOk === true ? '✅ 検証OK' : integrityOk === false ? '⚠️ 検証NG' : '');
+                setChatFileComplete(fileMsgId, {
+                    fileName: metadata.name,
+                    downloadUrl: downloadUrl,
+                    integrityLabel: integrityLabel
+                });
+                showToast('🎉 ファイル受信完了', 'success', 2500);
+                bidirectionalMode = true;
+                return;
             }
 
             showView('view-receive-complete');
@@ -1466,22 +1902,27 @@
                 previewContainer.appendChild(icon);
                 lucide.createIcons();
             } else {
-                const url = URL.createObjectURL(blob);
-                if ((metadata.mimeType || '').startsWith('video/')) {
-                    const video = document.createElement('video');
-                    video.src = url; video.controls = true;
-                    video.className = "w-full max-h-64 bg-black object-contain";
-                    previewContainer.appendChild(video);
-                } else if ((metadata.mimeType || '').startsWith('image/')) {
-                    const img = document.createElement('img');
-                    img.src = url;
-                    img.className = "max-w-full max-h-64 object-contain mx-auto";
-                    previewContainer.appendChild(img);
-                } else if ((metadata.mimeType || '').startsWith('audio/')) {
-                    const audio = document.createElement('audio');
-                    audio.src = url; audio.controls = true;
-                    audio.className = "w-full mt-4";
-                    previewContainer.appendChild(audio);
+                const mime = (metadata.mimeType || '');
+                // メディアファイルのときだけ ObjectURL を生成し、ページ離脱時に解放する
+                if (mime.startsWith('video/') || mime.startsWith('image/') || mime.startsWith('audio/')) {
+                    const previewUrl = URL.createObjectURL(blob);
+                    window.addEventListener('pagehide', () => URL.revokeObjectURL(previewUrl), { once: true });
+                    if (mime.startsWith('video/')) {
+                        const video = document.createElement('video');
+                        video.src = previewUrl; video.controls = true;
+                        video.className = "w-full max-h-64 bg-black object-contain";
+                        previewContainer.appendChild(video);
+                    } else if (mime.startsWith('image/')) {
+                        const img = document.createElement('img');
+                        img.src = previewUrl;
+                        img.className = "max-w-full max-h-64 object-contain mx-auto";
+                        previewContainer.appendChild(img);
+                    } else {
+                        const audio = document.createElement('audio');
+                        audio.src = previewUrl; audio.controls = true;
+                        audio.className = "w-full mt-4";
+                        previewContainer.appendChild(audio);
+                    }
                 } else {
                     const icon = document.createElement('i');
                     icon.setAttribute('data-lucide', 'file-text');
@@ -1497,6 +1938,277 @@
         }
 
         // ========================================================
+        // 💬 チャットUI
+        // ========================================================
+        function initChatUI() {
+            if (chatInitialized) return;
+            chatInitialized = true;
+
+            const input = el('chat-input');
+            const sendBtn = el('chat-send-btn');
+            const attachBtn = el('chat-attach-btn');
+            const fileInput = el('chat-file-input');
+
+            // スマホではプレースホルダーを短縮形に
+            if (window.innerWidth < 480) {
+                input.placeholder = 'メッセージ...';
+            }
+
+            // テキストエリアの自動サイズ調整
+            const autoResize = () => {
+                input.style.height = 'auto';
+                input.style.height = Math.min(input.scrollHeight, 100) + 'px';
+            };
+            input.addEventListener('input', autoResize);
+
+            // Enterで送信、Shift+Enterで改行
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+                    e.preventDefault();
+                    handleSendChatMessage();
+                }
+            });
+
+            sendBtn.addEventListener('click', handleSendChatMessage);
+
+            // ファイル添付ボタン
+            attachBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length > 0) {
+                    handleSendChatFiles(fileInput.files);
+                    fileInput.value = '';
+                }
+            });
+        }
+
+        async function handleSendChatMessage() {
+            const input = el('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+            if (!activeConn || !activeConn.open) {
+                showToast('⚠️ 接続が切れています', 'error');
+                return;
+            }
+
+            input.value = '';
+            input.style.height = 'auto';
+
+            const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            // 自分のバブルを即時表示（楽観的UI）
+            addChatBubble({
+                id: msgId,
+                kind: 'text',
+                text: text,
+                isMine: true,
+                timestamp: Date.now()
+            });
+
+            // 暗号化して送信
+            try {
+                const encrypted = await encryptText(aesKey, text);
+                activeConn.send({
+                    type: 'message',
+                    id: msgId,
+                    kind: 'text',
+                    data: encrypted,
+                    timestamp: Date.now()
+                });
+            } catch (err) {
+                console.error('Message encryption failed:', err);
+                showToast('❌ メッセージ送信失敗', 'error');
+            }
+        }
+
+        // チャットからファイル添付送信
+        async function handleSendChatFiles(fileList) {
+            if (!activeConn || !activeConn.open) {
+                showToast('⚠️ 接続が切れています', 'error');
+                return;
+            }
+            if (isSending) {
+                showToast('送信中です。完了までお待ちください。', 'info');
+                return;
+            }
+            // 複数ファイルは ZIP 化
+            let file, fileName;
+            if (fileList.length >= 2) {
+                addChatBubble({
+                    id: 'sys-' + Date.now(),
+                    kind: 'system',
+                    text: `📦 ${fileList.length}個のファイルをZIP圧縮中...`,
+                    timestamp: Date.now()
+                });
+                try {
+                    const zip = new JSZip();
+                    for (const f of fileList) zip.file(f.name, f);
+                    const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+                    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+                    fileName = `p2pdrop-${stamp}.zip`;
+                    file = new File([zipBlob], fileName, { type: 'application/zip' });
+                } catch (err) {
+                    showToast('ZIP圧縮失敗', 'error');
+                    return;
+                }
+            } else {
+                file = fileList[0];
+                fileName = file.name;
+            }
+
+            // SHA-256 (計算を処理してもよいが、チャットサイズのファイルは軽量と仮定)
+            let hash = null;
+            if (file.size <= SHA256_LIMIT) {
+                try { hash = await computeFileSha256(file); } catch(e) {}
+            }
+
+            const fileMsgId = `file-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            // 自分のバブルを送信中状態で表示
+            addChatBubble({
+                id: fileMsgId,
+                kind: 'file',
+                fileName: fileName,
+                fileSize: file.size,
+                isMine: true,
+                isZip: fileList.length >= 2,
+                fileCount: fileList.length,
+                progress: 0,
+                timestamp: Date.now()
+            });
+
+            // 送信開始
+            isSending = true;
+            currentFile = file;
+            currentFileName = fileName;
+            currentFileHash = hash;
+            selectedFiles = fileList.length >= 2 ? Array.from(fileList) : [file];
+
+            const conn = activeConn;
+            conn.send({
+                type: 'metadata',
+                id: fileMsgId,
+                name: fileName,
+                mimeType: file.type || 'application/octet-stream',
+                size: file.size,
+                isZip: fileList.length >= 2,
+                fileCount: fileList.length,
+                sha256: hash,
+                encrypted: true,
+                chunkSize: CHUNK_SIZE,
+                totalChunks: Math.ceil(file.size / CHUNK_SIZE),
+                largeMode: false,
+                fromChat: true   // チャット経由のファイル送信であることを示す
+            });
+            // 送信スタートは受信側から 'ready' が返ってから開始される
+            // 進捗表示用に registry に保存
+            fileRegistry.set(fileMsgId, { type: 'sending', file: file, totalChunks: Math.ceil(file.size / CHUNK_SIZE) });
+        }
+
+        function addChatBubble({ id, kind, text, fileName, fileSize, isMine, isZip, fileCount, progress, timestamp, hash, downloadUrl }) {
+            const history = el('chat-history');
+            const wrapper = document.createElement('div');
+            wrapper.style.display = 'contents';
+
+            // セキュリティ: 相手から渡された id は DOM id/innerHTML にそのまま使わず、
+            // 英数字とハイフンのみの安全なスラグに変換して使用する
+            const safeId = id ? String(id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || ('id-' + Date.now()) : null;
+
+            if (kind === 'system') {
+                const b = document.createElement('div');
+                b.className = 'chat-bubble system';
+                b.textContent = text;
+                if (safeId) b.id = `bubble-${safeId}`;
+                history.appendChild(b);
+                history.scrollTop = history.scrollHeight;
+                return;
+            }
+
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${kind === 'file' ? 'file ' : ''}${isMine ? 'mine' : 'theirs'}`;
+            if (safeId) bubble.id = `bubble-${safeId}`;
+
+            if (kind === 'text') {
+                bubble.textContent = text;
+            } else if (kind === 'file') {
+                const sizeLabel = formatBytes(fileSize);
+                const fileEsc = escapeHtml(fileName);
+                const sizeEsc = escapeHtml(sizeLabel);
+                const fcEsc = isZip ? escapeHtml(String(fileCount || '')) : '';
+                bubble.innerHTML = `
+                    <div class="chat-file-card">
+                        <span class="chat-file-icon">${isZip ? '📦' : '📄'}</span>
+                        <div class="chat-file-info">
+                            <div class="chat-file-name">${fileEsc}</div>
+                            <div class="chat-file-size">${sizeEsc}${isZip ? ` ・ ${fcEsc}個のファイル` : ''}</div>
+                        </div>
+                    </div>
+                    <div class="chat-progress-bar" id="chat-progress-${safeId}"><div class="chat-progress-fill" style="width:${Number(progress) || 0}%"></div></div>
+                    <div class="chat-file-actions" id="chat-actions-${safeId}"></div>
+                `;
+            }
+            history.appendChild(bubble);
+
+            // タイムスタンプ
+            if (timestamp && kind !== 'system') {
+                const meta = document.createElement('div');
+                meta.className = 'chat-meta';
+                const d = new Date(timestamp);
+                meta.textContent = `${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
+                history.appendChild(meta);
+            }
+
+            history.scrollTop = history.scrollHeight;
+        }
+
+        // id を DOM セーフな形に正規化（addChatBubble と同じルール）
+        function sanitizeId(id) {
+            return id ? String(id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) : '';
+        }
+        // ファイル送信進捗をチャットバブルに反映
+        function updateChatFileProgress(id, percent) {
+            const safe = sanitizeId(id);
+            if (!safe) return;
+            const bar = document.querySelector(`#chat-progress-${safe} .chat-progress-fill`);
+            if (bar) bar.style.width = (Number(percent) || 0).toFixed(1) + '%';
+        }
+        // ファイル送受信完了時のアクションボタンを追加
+        function setChatFileComplete(id, options) {
+            const safe = sanitizeId(id);
+            if (!safe) return;
+            const actions = el(`chat-actions-${safe}`);
+            const progressBar = el(`chat-progress-${safe}`);
+            if (progressBar) progressBar.style.display = 'none';
+            if (!actions) return;
+            actions.innerHTML = '';
+            if (options.downloadUrl) {
+                const a = document.createElement('a');
+                a.href = options.downloadUrl;
+                a.download = options.fileName;
+                a.className = 'chat-file-btn';
+                a.innerHTML = '⬇ 保存';
+                actions.appendChild(a);
+            }
+            if (options.integrityLabel) {
+                const s = document.createElement('span');
+                s.className = 'chat-file-btn';
+                s.textContent = options.integrityLabel;
+                s.style.cursor = 'default';
+                actions.appendChild(s);
+            }
+        }
+
+        // 接続成立後にチャットビューに遷移
+        function switchToChatView(initialMessage = null) {
+            initChatUI();
+            showView('view-chat');
+            // 接続状態バーを更新
+            const statusText = el('chat-status-text');
+            if (statusText) statusText.textContent = window.innerWidth < 480 ? 'E2EE暗号化接続中' : 'エンドツーエンド暗号化接続中';
+            // 初期システムメッセージ
+            if (initialMessage) {
+                addChatBubble({ kind: 'system', text: initialMessage, timestamp: Date.now() });
+            }
+        }
+
+        // ========================================================
         // 双方向送信モード（受信完了後、同じ接続で逆方向に送る）
         // ========================================================
         function startReplyMode() {
@@ -1504,23 +2216,13 @@
                 showToast('⚠️ 接続が切れています。トップからやり直してください。', 'error', 4000);
                 return;
             }
-            // ★ 接続を維持したまま、送信モードのファイル選択画面へ
-            selectedFiles = [];
+            // ★ チャットビューに遷移し、チャット経由でファイルを送れるようにする
             recvState = null;
             bidirectionalMode = true;
-            // 鍵は既存の aesKey をそのまま使う（リセットしない）
-
-            showToast('📤 接続を維持したまま返送モードに切替えました', 'info', 3000);
-            initSendMode();
-            // 双方向モード中であることを UI で明示
-            const banner = el('bidirectional-banner');
-            if (banner) banner.classList.remove('hidden');
-            // ボタンのラベルを「暗号化して送信」に変更
-            const startBtn = document.querySelector('button[onclick="startSharing()"]');
-            if (startBtn) {
-                startBtn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i> 暗号化して送信';
-                lucide.createIcons();
-            }
+            if (!chatInitialized) initChatUI();
+            switchToChatView();
+            showToast('💬 チャットモードへ移行しました。メッセージやファイルを送れます', 'info', 3000);
+            el('chat-input').focus();
         }
     </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
